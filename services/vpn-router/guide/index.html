@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VPN 分流使用說明</title>
+<style>
+  :root { --bg: #fff; --fg: #1f2328; --muted: #59636e; --line: #d1d9e0; --code: #f6f8fa; --link: #0969da; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0d1117; --fg: #e6edf3; --muted: #9198a1; --line: #3d444d; --code: #151b23; --link: #4493f8; }
+  }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.6 system-ui, "Noto Sans TC", sans-serif; }
+  main { max-width: 920px; margin: 0 auto; padding: 24px 16px 64px; }
+  a { color: var(--link); }
+  h1, h2 { border-bottom: 1px solid var(--line); padding-bottom: .3em; }
+  code, pre { background: var(--code); border-radius: 6px; font: 14px/1.5 ui-monospace, monospace; }
+  code { padding: .15em .35em; }
+  pre { padding: 12px 16px; overflow-x: auto; }
+  pre code { padding: 0; }
+  table { border-collapse: collapse; display: block; overflow-x: auto; }
+  th, td { border: 1px solid var(--line); padding: 6px 12px; text-align: left; }
+  blockquote { margin: 0; padding: 0 1em; color: var(--muted); border-left: 4px solid var(--line); }
+</style>
+</head>
+<body>
+<main id="doc">載入中…</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/15.0.7/marked.min.js"></script>
+<script>
+  // 取同目錄的 USAGE.md 渲染；CDN 載不到時退回純文字
+  fetch('USAGE.md').then(r => r.text()).then(md => {
+    const doc = document.getElementById('doc');
+    if (window.marked) {
+      doc.innerHTML = marked.parse(md);
+      // 標題 id 比照 GitHub 規則（去標點、空白轉 -），讓文件內的錨點連結可用
+      doc.querySelectorAll('h1,h2,h3,h4').forEach(h => {
+        h.id = h.textContent.trim().toLowerCase().replace(/[^\p{L}\p{N}\s-]/gu, '').replace(/\s/g, '-');
+      });
+      if (location.hash) document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView();
+    }
+    else { doc.textContent = md; doc.style.whiteSpace = 'pre-wrap'; }
+  });
+</script>
+</body>
+</html>

@@ -12,4 +12,5 @@
 
 | 主題 | 設計 | 服務 | 摘要 |
 |---|---|---|---|
+| vpn-router | [docs/vpn-router](docs/vpn-router/README.md) | [services/vpn-router](services/vpn-router/README.md) | minipc-01（192.168.1.21）取代故障的路由器 VPN／靜態路由：LAN 經 DHCP Option 121、遠端經自架 NetBird，前往 10.10.0.0/16 走 4G dongle；遠端另可進 192.168.1.0/24；依賴 traefik；說明頁 `https://<VPN_GUIDE_DOMAIN>:8443`（限 LAN／NetBird 等內部來源） |
 | traefik | [docs/traefik](docs/traefik/README.md) | [services/traefik](services/traefik/README.md) | minipc-01 共用 HTTPS 入口：各 project 經外部網路 `traefik-proxy` 接入，Let's Encrypt（Cloudflare DNS-01），對外 8443；說明頁 `https://traefik.<TRAEFIK_LAN_DOMAIN>:8443`（限 LAN／NetBird／路由器 VPN） |
