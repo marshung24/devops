@@ -4,7 +4,9 @@
 ## 目錄
 
 - `docs/<主題>/`：設計規格——要了解為何這樣做、選案、風險與上線／回復程序時讀。
-- `services/<服務>/`：可部署的服務（compose、映像、`.env.example`）——要部署、調參數或排查時讀其 README。
+- `services/<服務>/`：可部署的服務（compose、映像、`.env.example`）——要部署、調參數或排查時讀其 README。README 會隨服務安裝到主機，`tools/install.sh` 安裝時自動在標題下加註作者（該檔第一次 commit 者）與最後更新（最後一次 commit 者與日期），原檔不必手寫。
+- `tools/install.sh [-n] <服務> <ssh 主機>`：把 `services/<服務>/` 同步到主機 `~/<服務>/`（不啟動；刪除主機多餘檔案，`.env` 本機有才覆蓋、沒有就保留主機那份；`-n` 只列變動）。
+- `tools/run.sh [up|down|start|stop|restart|list] <服務> <ssh 主機> [compose 服務...]`：在主機 `~/<服務>/` 執行對應的 `docker compose` 指令（`up` 帶 `-d`）；省略指令或 `list` 列出該服務的容器與狀態。
 
 ## 索引
 
