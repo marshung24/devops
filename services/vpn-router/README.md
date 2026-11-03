@@ -24,7 +24,7 @@
 | `dhcp` | dnsmasq，LAN DHCP，下發 `DHCP_ROUTE_NET` 分流路由 | host |
 | `netbird` | NetBird client，routing peer，轉送 Dashboard 設定的網段給遠端 | host |
 | `dashboard` | NetBird 管理介面 | `traefik-proxy` |
-| `netbird-server` | Management＋Signal＋Relay＋STUN＋內建 IdP | 同上 |
+| `netbird-server` | Management＋Signal＋Relay＋內建 IdP（STUN 用公共服務，見 docs §4） | 同上 |
 | `guide` | 使用者說明頁 `https://<VPN_GUIDE_DOMAIN>`，渲染 `USAGE.md`，只限 `VPN_GUIDE_ALLOW` 來源 | 同上 |
 
 ## Port
@@ -32,9 +32,8 @@
 | Port | 協定 | 服務 | 對外 | 用途 |
 |---|---|---|---|---|
 | `NB_PUBLIC_PORT`（預設 443，須同反向代理對外 port） | TCP | 共用反向代理 | ✅ 路由器轉送到轉送主機 | Dashboard、REST API、gRPC（Management／Signal）、Relay |
-| `NB_STUN_PORT`（預設 3478） | UDP | netbird-server | ✅ 路由器轉送到轉送主機 | STUN，NAT 穿透，不可經代理 |
 | 67 | UDP | dhcp | ❌ 只在 `DHCP_INTERFACE` | DHCP server |
-| 51820 | UDP | netbird | ❌ 不需轉送 | WireGuard，NetBird 自動打洞，失敗時經 Relay |
+| 51820 | UDP | netbird | ⭕ 建議轉送到轉送主機 | WireGuard；P2P 失敗時經 Relay（較慢） |
 
 ## 使用方式
 
@@ -43,7 +42,7 @@
 ### 1. 前置
 
 - 轉送主機已具備往目標網段的路由與轉送（見 docs §2）。
-- 路由器：轉送 `NB_PUBLIC_PORT`/tcp、`NB_STUN_PORT`/udp → 轉送主機。
+- 路由器：轉送 `NB_PUBLIC_PORT`/tcp → 轉送主機；建議一併轉送 51820/udp。
 - 共用反向代理已上線（見〈依賴〉）；尚未部署時先依 [services/traefik](../traefik/README.md) 安裝。
 
 ### 2. 同步到主機並建立 `.env`
@@ -72,7 +71,6 @@ cd ~/vpn-router && cp .env.example .env && vi .env
 | `DHCP_ROUTE_NET` | 目標網段，DHCP 把它指向轉送主機 |
 | `NB_DOMAIN` | 控制面網域，須在反向代理對外根網域下一層 |
 | `NB_PUBLIC_PORT` | 控制面對外 HTTPS port，須與反向代理相同 |
-| `NB_STUN_PORT` | STUN port |
 | `NB_PEER_HOSTNAME` | routing peer 在 NetBird 的名稱 |
 | `NB_SETUP_KEY` | routing peer 註冊用一次性 key（控制面起來後才有） |
 | `NB_AUTH_SECRET` | Relay 驗證密鑰 |

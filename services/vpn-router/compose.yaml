@@ -61,13 +61,11 @@ services:
       - traefik.http.services.vpn-router-dashboard.loadbalancer.server.port=80
     restart: unless-stopped
 
-  # 控制面主體：Management＋Signal＋Relay＋STUN＋內建 IdP；STUN 走 UDP 直接對外
+  # 控制面主體：Management＋Signal＋Relay＋內建 IdP；STUN 改用公共服務（見 configs.netbird-server）
   netbird-server:
     image: netbirdio/netbird-server:0.80.0
     container_name: vpn-router-netbird-server
     networks: [proxy]
-    ports:
-      - ${NB_STUN_PORT}:${NB_STUN_PORT}/udp
     command: ["--config", "/etc/netbird/config.yaml"]
     configs:
       - source: netbird-server
@@ -143,8 +141,10 @@ configs:
       server:
         listenAddress: ":80"
         exposedAddress: "https://${NB_DOMAIN}:${NB_PUBLIC_PORT}"
-        stunPorts:
-          - ${NB_STUN_PORT}
+        # 公共 STUN：設了 stuns 即不啟用內建 STUN；為何不用內建見 docs/vpn-router §4〈STUN〉
+        stuns:
+          - uri: "stun:stun.cloudflare.com:3478"
+          - uri: "stun:stun.l.google.com:19302"
         healthcheckAddress: ":9000"
         logLevel: "info"
         logFile: "console"

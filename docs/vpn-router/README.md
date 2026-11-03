@@ -23,7 +23,7 @@ LAN 筆電 ──DHCP Option 121──→ 轉送主機 ──→ 專線 ──�
 轉送主機須先具備下列條件，本方案不負責建立：
 
 - **往目標網段的路由與轉送**：`ip_forward=1`、FORWARD 放行 LAN ↔ 目標網段、往目標網段 MASQUERADE，且重開機後仍在。舉例：本案 dongle 介面 `enxd23ab9ed64c4`（192.168.0.21/24），`10.10.0.0/16 via 192.168.0.1` 由 root cron 每分鐘維護，iptables 規則持久化於 `/etc/iptables/rules.v4`。
-- **對外入口**：路由器能把 HTTPS port 與 3478/udp 轉送到轉送主機。主機 443 已被佔用時改用其他 port；舉例：本案主機 nginx 佔用 80/443，入口改用 8443。
+- **對外入口**：路由器能把 HTTPS port 轉送到轉送主機；建議一併轉送 WireGuard 51820/udp，P2P 較易建立。主機 443 已被佔用時改用其他 port；舉例：本案主機 nginx 佔用 80/443，入口改用 8443。
 - **NAT loopback**：路由器不支援時，LAN 內連不到對外網域；舉例：本案即不支援，見 §4〈本機回連〉。
 
 ⇒ 本方案只補兩件事：讓用戶端把目標網段送到轉送主機，以及遠端可註冊的 NetBird 控制面。
@@ -34,6 +34,7 @@ LAN 筆電 ──DHCP Option 121──→ 轉送主機 ──→ 專線 ──�
 |---|---|---|
 | LAN 分流 | **DHCP Option 121 只把目標網段指向轉送主機** | 轉送主機當全體預設閘道：故障面擴大到全部上網；僅在端點不支援 121 時改用 |
 | NetBird 控制面 | **自架 Community Edition**（官方合併式 `netbird-server`＋dashboard，內建 IdP，人數不限） | NetBird Cloud：免費方案上限 5 人 |
+| P2P 位址探測（STUN） | **公共 STUN**（例：Cloudflare、Google），細節見 §4〈STUN〉 | 內建 STUN：routing peer 只取得 LAN IP，P2P 建不起來；`external-ip-map` 宣告公網 IP：DDNS 浮動須另寫偵測與重建 |
 | 控制面入口 | **接入主機上的共用反向代理**（例：共用 Traefik，選案與接入契約讀 [docs/traefik](../traefik/README.md)） | 掛主機既有 nginx：要改正式環境設定並加 gRPC |
 | 使用者說明頁 | **`https://vpn.<LAN 網域>`，只限 LAN、NetBird 與其他內部來源**；帳號申請寫「洽 IT 管理者」 | 對網際網路公開：遠端新使用者裝好前也能看，但內容含內部網段與 IP（遠端新使用者改由管理者告知安裝方式） |
 
@@ -55,8 +56,9 @@ LAN 筆電 ──DHCP Option 121──→ 轉送主機 ──→ 專線 ──�
 
 ### NetBird 控制面（自架）
 
-- **入口**：`https://<NB_DOMAIN>`（例：`netbird.wan.example.com`；入口 port 非 443 時網址要帶 port），用共用反向代理的對外網域與萬用字元憑證，不另設 DNS；不走 Cloudflare proxy（gRPC／STUN 無法經其代理）。只用單一網域：NetBird 的對外位址與 OIDC issuer 只能有一個，雙網域會使登入導向不符。
-- **對外**：HTTPS port（經反向代理）、3478/udp（STUN 直連，不可經代理）。
+- **入口**：`https://<NB_DOMAIN>`（例：`netbird.wan.example.com`；入口 port 非 443 時網址要帶 port），用共用反向代理的對外網域與萬用字元憑證，不另設 DNS；不走 Cloudflare proxy（gRPC 無法經其代理）。只用單一網域：NetBird 的對外位址與 OIDC issuer 只能有一個，雙網域會使登入導向不符。
+- **對外**：HTTPS port（經反向代理）；WireGuard 51820/udp 建議轉送到轉送主機。
+- **STUN**：用公共 STUN（例：Cloudflare、Google），不啟用內建 STUN。內建 STUN 與控制面同網域，routing peer 經〈本機回連〉的 `extra_hosts` 會問到 LAN 上的自己，只取得 LAN IP、宣告不出公網位址，P2P 因而建不起來、一律走 Relay；公共 STUN 在 NAT 外，取得的公網位址也隨 DDNS 自動更新。公共 STUN 只看得到各裝置對外 IP，看不到帳號、設定與 VPN 流量。
 - **TLS**：由共用反向代理簽發。
 - **帳號**：內建 IdP 本地帳號。owner 在 Dashboard 以 Add User 建立帳號，方式有兩種：直接建立（系統產生密碼，只顯示一次）或邀請連結（使用者自設密碼，連結有期限）；建立時自動加入群組 `Remote-Users`。建議用邀請連結，密碼不經管理者。
 - **網路**：dashboard、netbird-server 接入反向代理的共用網路；只有 routing peer 用 host network。
@@ -95,6 +97,7 @@ LAN 筆電 ──DHCP Option 121──→ 轉送主機 ──→ 專線 ──�
 | 端點不支援 121 | 目標網段不通；步驟 4 逐台確認，不支援者改用 NetBird 或改以轉送主機當閘道 |
 | 遠端當地網段與 LAN 相同 | 連不到 LAN 或當地 LAN 中斷（依 OS 而定）；該使用者改當地網段。舉例：本案發布整段 192.168.1.0/24，已接受此風險 |
 | 雙 DHCP 同時應答 | IP 衝突；嚴守步驟 4 先關路由器 DHCP |
+| 公共 STUN 無法使用 | 新連線無法打 P2P、改走 Relay（較慢但可用）；列兩家互為備援 |
 | 轉送主機停機 | 遠端與 LAN 都無法到目標網段、拿不到新租約；依回復程序處理 |
 | NetBird 改寫主機規則 | 可能影響既有連線與服務；以基線比對 |
 
