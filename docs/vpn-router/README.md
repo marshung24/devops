@@ -85,7 +85,7 @@ LAN 筆電 ──DHCP Option 121──→ 轉送主機 ──→ 專線 ──�
 **上線**（使用方式指 `services/vpn-router/README.md`；先備份 `ip route`／`iptables-save`，並記錄轉送主機既有連線與服務的狀況當基線）：
 
 1. **控制面**（使用方式步驟 1–3）：用外網（例：手機 4G）開 `https://<NB_DOMAIN>`，能完成 `/setup` 並登入。
-2. **routing peer、路由與帳號**（使用方式步驟 4–6）：用外網筆電登入後，連得到目標網段與 LAN 主機（例：本案 10.10.10.215 與 192.168.1.1），並測轉送主機上容器的 mapping port。
+2. **routing peer、路由與帳號**（使用方式步驟 4–6）：用外網筆電登入後，連得到目標網段與 LAN 主機（例：本案 10.10.10.215 與 192.168.1.1），並測轉送主機上容器的 mapping port；routing peer 上看該 peer 為 `Connection type: P2P`（Relayed 表示 P2P 未建立，見 §4〈STUN〉）。
 3. **使用者說明頁**（使用方式步驟 7）：LAN 與 NetBird 遠端可開 `https://<VPN_GUIDE_DOMAIN>`，內容為實際值；外網回 403。
 4. **DHCP**（使用方式步驟 8）：LAN 筆電重連，確認路由表有 `<目標網段> via <HOST_LAN_IP>` 與 `default via <DHCP_GATEWAY>`。
 5. 比對基線，並另約時段重開轉送主機驗證自動恢復。

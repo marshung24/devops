@@ -180,4 +180,5 @@ tools/run.sh up vpn-router <主機> --build dhcp
 | 看 log | `docker compose logs -f <服務>` |
 | 看 DHCP 租約 | `docker compose exec dhcp cat /var/lib/dnsmasq/dnsmasq.leases` |
 | 看 routing peer 狀態 | `docker compose exec netbird netbird status` |
+| 查遠端連線慢 | `docker compose exec netbird netbird status -d`：各 peer 應為 `Connection type: P2P`；`Relayed` 表示走 Relay（較慢），先請該使用者 `netbird down && netbird up` 重試 |
 | 停 DHCP（回復路由器 DHCP 前） | `docker compose stop dhcp` |
