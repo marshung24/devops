@@ -40,7 +40,8 @@ services:
       - letsencrypt:/letsencrypt
     restart: unless-stopped
 
-  # 說明頁：把 USAGE.md 渲染成網頁，給想接入的人看；只限 LAN、NetBird 與路由器 VPN 來源，不對網際網路公開
+  # 說明頁：把 USAGE.md 渲染成網頁，給想接入的人看；只限私有網段與 NetBird（100.64.0.0/10）來源，不對網際網路公開
+  # 兼作內部來源的預設頁：全匹配且優先序最低；來源限制寫在規則內，其他來源不匹配，走 Traefik 預設回應
   guide:
     build:
       context: .
@@ -53,11 +54,10 @@ services:
     networks: [proxy]
     labels:
       - traefik.enable=true
-      - traefik.http.routers.traefik-guide.rule=Host(`traefik.${TRAEFIK_LAN_DOMAIN}`)
+      - traefik.http.routers.traefik-guide.rule=HostRegexp(`.+`) && (ClientIP(`10.0.0.0/8`) || ClientIP(`172.16.0.0/12`) || ClientIP(`192.168.0.0/16`) || ClientIP(`100.64.0.0/10`))
+      - traefik.http.routers.traefik-guide.priority=1
       - traefik.http.routers.traefik-guide.entrypoints=websecure
       - traefik.http.routers.traefik-guide.tls=true
-      - traefik.http.routers.traefik-guide.middlewares=traefik-internal-only
-      - traefik.http.middlewares.traefik-internal-only.ipallowlist.sourcerange=192.168.1.0/24,100.64.0.0/10,10.8.0.0/24
       - traefik.http.services.traefik-guide.loadbalancer.server.port=80
     restart: unless-stopped
 
