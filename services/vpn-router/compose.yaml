@@ -1,0 +1,180 @@
+# 轉送主機分流：讓 LAN（經 DHCP）與遠端（經 NetBird）前往目標網段的流量經本機轉送；設計見 docs/vpn-router/README.md
+# 參數與密鑰都在 .env（見 .env.example）；設定檔以 configs 內嵌並代入 .env 變數
+name: vpn-router
+
+services:
+  # LAN DHCP：下發 Option 121/249，把分流網段指向本機
+  dhcp:
+    build:
+      context: ./dnsmasq
+      # 建置走主機解析器：主機 DNS 清單首位可能是不通網際網路的專線閘道（例：dongle），bridge 下會查無套件來源
+      network: host
+    container_name: vpn-router-dhcp
+    network_mode: host
+    cap_add: [NET_ADMIN, NET_RAW]
+    configs:
+      - source: dnsmasq
+        target: /etc/dnsmasq.conf
+    volumes:
+      - dhcp-leases:/var/lib/dnsmasq
+    restart: unless-stopped
+
+  # NetBird client：routing peer，發布分流網段；host network 才能改主機路由與轉送
+  netbird:
+    image: netbirdio/netbird:0.80.0
+    container_name: vpn-router-netbird
+    network_mode: host
+    cap_add: [NET_ADMIN, SYS_ADMIN, SYS_RESOURCE]
+    devices: [/dev/net/tun]
+    environment:
+      NB_SETUP_KEY: ${NB_SETUP_KEY:-}
+      NB_MANAGEMENT_URL: https://${NB_DOMAIN}:${NB_PUBLIC_PORT}
+      NB_HOSTNAME: ${NB_PEER_HOSTNAME}
+    # 不經路由器 NAT loopback，本機直連控制面
+    extra_hosts:
+      - ${NB_DOMAIN}:${HOST_LAN_IP}
+    volumes:
+      - netbird-client:/var/lib/netbird
+    restart: unless-stopped
+
+  # 控制面 UI
+  dashboard:
+    image: netbirdio/dashboard:v2.94.0
+    container_name: vpn-router-dashboard
+    networks: [proxy]
+    environment:
+      NETBIRD_MGMT_API_ENDPOINT: https://${NB_DOMAIN}:${NB_PUBLIC_PORT}
+      NETBIRD_MGMT_GRPC_API_ENDPOINT: https://${NB_DOMAIN}:${NB_PUBLIC_PORT}
+      AUTH_AUDIENCE: netbird-dashboard
+      AUTH_CLIENT_ID: netbird-dashboard
+      AUTH_AUTHORITY: https://${NB_DOMAIN}:${NB_PUBLIC_PORT}/oauth2
+      USE_AUTH0: "false"
+      AUTH_SUPPORTED_SCOPES: openid profile email groups
+      AUTH_REDIRECT_URI: /nb-auth
+      AUTH_SILENT_REDIRECT_URI: /nb-silent-auth
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.vpn-router-dashboard.rule=Host(`${NB_DOMAIN}`)
+      - traefik.http.routers.vpn-router-dashboard.entrypoints=websecure
+      - traefik.http.routers.vpn-router-dashboard.tls=true
+      - traefik.http.routers.vpn-router-dashboard.priority=1
+      - traefik.http.services.vpn-router-dashboard.loadbalancer.server.port=80
+    restart: unless-stopped
+
+  # 控制面主體：Management＋Signal＋Relay＋內建 IdP；STUN 改用公共服務（見 configs.netbird-server）
+  netbird-server:
+    image: netbirdio/netbird-server:0.80.0
+    container_name: vpn-router-netbird-server
+    networks: [proxy]
+    command: ["--config", "/etc/netbird/config.yaml"]
+    configs:
+      - source: netbird-server
+        target: /etc/netbird/config.yaml
+    volumes:
+      - netbird-server-data:/var/lib/netbird
+    labels:
+      - traefik.enable=true
+      # gRPC（Signal／Management）需 h2c 後端
+      - traefik.http.routers.vpn-router-grpc.rule=Host(`${NB_DOMAIN}`) && (PathPrefix(`/signalexchange.SignalExchange/`) || PathPrefix(`/management.ManagementService/`))
+      - traefik.http.routers.vpn-router-grpc.entrypoints=websecure
+      - traefik.http.routers.vpn-router-grpc.tls=true
+      - traefik.http.routers.vpn-router-grpc.service=vpn-router-server-h2c
+      - traefik.http.routers.vpn-router-grpc.priority=100
+      # Relay、WebSocket、REST API、OAuth2
+      - traefik.http.routers.vpn-router-backend.rule=Host(`${NB_DOMAIN}`) && (PathPrefix(`/relay`) || PathPrefix(`/ws-proxy/`) || PathPrefix(`/api`) || PathPrefix(`/oauth2`))
+      - traefik.http.routers.vpn-router-backend.entrypoints=websecure
+      - traefik.http.routers.vpn-router-backend.tls=true
+      - traefik.http.routers.vpn-router-backend.service=vpn-router-server
+      - traefik.http.routers.vpn-router-backend.priority=100
+      - traefik.http.services.vpn-router-server.loadbalancer.server.port=80
+      - traefik.http.services.vpn-router-server-h2c.loadbalancer.server.port=80
+      - traefik.http.services.vpn-router-server-h2c.loadbalancer.server.scheme=h2c
+    restart: unless-stopped
+
+  # 使用者說明頁：把 USAGE.md 渲染成網頁；只限 VPN_GUIDE_ALLOW 來源，不對網際網路公開
+  guide:
+    build:
+      context: .
+      dockerfile: guide/Dockerfile
+      args:
+        NB_DOMAIN: ${NB_DOMAIN}
+        NB_PUBLIC_PORT: ${NB_PUBLIC_PORT}
+        VPN_GUIDE_DOMAIN: ${VPN_GUIDE_DOMAIN}
+        HOST_LAN_IP: ${HOST_LAN_IP}
+        DHCP_POOL_START: ${DHCP_POOL_START}
+        DHCP_POOL_END: ${DHCP_POOL_END}
+        DHCP_GATEWAY: ${DHCP_GATEWAY}
+        DHCP_DNS: ${DHCP_DNS}
+        DHCP_ROUTE_NET: ${DHCP_ROUTE_NET}
+        DHCP_LEASE_TIME: ${DHCP_LEASE_TIME}
+    container_name: vpn-router-guide
+    networks: [proxy]
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.vpn-router-guide.rule=Host(`${VPN_GUIDE_DOMAIN:?VPN_GUIDE_DOMAIN 未設定，見 .env.example}`)
+      - traefik.http.routers.vpn-router-guide.entrypoints=websecure
+      - traefik.http.routers.vpn-router-guide.tls=true
+      - traefik.http.routers.vpn-router-guide.middlewares=vpn-router-internal-only
+      - traefik.http.middlewares.vpn-router-internal-only.ipallowlist.sourcerange=${VPN_GUIDE_ALLOW:?VPN_GUIDE_ALLOW 未設定，見 .env.example}
+      - traefik.http.services.vpn-router-guide.loadbalancer.server.port=80
+    restart: unless-stopped
+
+configs:
+  # 只在 LAN 提供 DHCP；port=0 關閉 DNS，避免與 systemd-resolved 衝突
+  dnsmasq:
+    content: |
+      port=0
+      interface=${DHCP_INTERFACE}
+      bind-dynamic
+      dhcp-authoritative
+      dhcp-leasefile=/var/lib/dnsmasq/dnsmasq.leases
+      dhcp-range=${DHCP_POOL_START},${DHCP_POOL_END},255.255.255.0,${DHCP_LEASE_TIME}
+      dhcp-option=option:router,${DHCP_GATEWAY}
+      dhcp-option=option:dns-server,${DHCP_DNS}
+      # 121 會使用戶端忽略 Option 3，故須含預設路由；249 內容同 121
+      dhcp-option=option:classless-static-route,${DHCP_ROUTE_NET},${HOST_LAN_IP},0.0.0.0/0,${DHCP_GATEWAY}
+      dhcp-option=249,${DHCP_ROUTE_NET},${HOST_LAN_IP},0.0.0.0/0,${DHCP_GATEWAY}
+      # 保留位址：每台一行 dhcp-host=<MAC>,<IP>
+
+  netbird-server:
+    content: |
+      server:
+        listenAddress: ":80"
+        exposedAddress: "https://${NB_DOMAIN}:${NB_PUBLIC_PORT}"
+        # 公共 STUN：設了 stuns 即不啟用內建 STUN；為何不用內建見 docs/vpn-router §4〈STUN〉
+        stuns:
+          - uri: "stun:stun.cloudflare.com:3478"
+          - uri: "stun:stun.l.google.com:19302"
+        healthcheckAddress: ":9000"
+        logLevel: "info"
+        logFile: "console"
+        authSecret: "${NB_AUTH_SECRET:?NB_AUTH_SECRET 未設定，見 .env.example}"
+        dataDir: "/var/lib/netbird"
+        # 內建 IdP（Dex）；首次開 Dashboard 會導到 /setup 建立 owner
+        auth:
+          issuer: "https://${NB_DOMAIN}:${NB_PUBLIC_PORT}/oauth2"
+          signKeyRefreshEnabled: true
+          sessionCookieEncryptionKey: "${NB_SESSION_COOKIE_KEY:?NB_SESSION_COOKIE_KEY 未設定，見 .env.example}"
+          dashboardRedirectURIs:
+            - "https://${NB_DOMAIN}:${NB_PUBLIC_PORT}/nb-auth"
+            - "https://${NB_DOMAIN}:${NB_PUBLIC_PORT}/nb-silent-auth"
+        # 只信任共用反向代理帶的 X-Forwarded-*（IP 為其接入契約的固定 IP）
+        reverseProxy:
+          trustedPeers:
+            - "172.30.0.10/32"
+          trustedHTTPProxies:
+            - "172.30.0.10/32"
+        store:
+          engine: "sqlite"
+          encryptionKey: "${NB_STORE_ENCRYPTION_KEY:?NB_STORE_ENCRYPTION_KEY 未設定，見 .env.example}"
+
+networks:
+  # 共用反向代理建立的網路（例：services/traefik），須先啟動
+  proxy:
+    name: traefik-proxy
+    external: true
+
+volumes:
+  dhcp-leases:
+  netbird-client:
+  netbird-server-data:

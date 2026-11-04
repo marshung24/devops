@@ -1,0 +1,89 @@
+# minipc-01 共用 HTTPS 入口：各 compose project 經外部網路 traefik-proxy 接入；設計見 docs/traefik/README.md
+# 參數與密鑰都在 .env（見 .env.example）；安裝設定見 README.md，接入方式見 USAGE.md（由 guide 說明頁提供）
+name: traefik
+
+services:
+  # 對外入口：主機 80/443 已被 nginx 佔用，對外改用 TRAEFIK_PUBLIC_PORT；憑證走 Cloudflare DNS-01
+  traefik:
+    image: traefik:v3.7.14
+    container_name: traefik
+    networks:
+      proxy:
+        ipv4_address: 172.30.0.10
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=traefik-proxy
+      # 萬用字元憑證設定（configs.tls）
+      - --providers.file.filename=/etc/traefik/tls.yaml
+      - --entrypoints.websecure.address=:443
+      # gRPC 長連線不可逾時
+      - --entrypoints.websecure.transport.respondingTimeouts.readTimeout=0
+      - --entrypoints.websecure.transport.respondingTimeouts.writeTimeout=0
+      - --entrypoints.websecure.transport.respondingTimeouts.idleTimeout=0
+      - --serverstransport.forwardingtimeouts.responseheadertimeout=0s
+      - --serverstransport.forwardingtimeouts.idleconntimeout=0s
+      - --certificatesresolvers.le.acme.email=${ACME_EMAIL:?ACME_EMAIL 未設定，見 .env.example}
+      - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
+      - --certificatesresolvers.le.acme.dnschallenge.provider=cloudflare
+      # 驗證 TXT 生效改查公共 DNS，不受主機（含 ppp0 推送）解析器影響
+      - --certificatesresolvers.le.acme.dnschallenge.resolvers=1.1.1.1:53,8.8.8.8:53
+    configs:
+      - source: tls
+        target: /etc/traefik/tls.yaml
+    environment:
+      CF_DNS_API_TOKEN: ${CF_DNS_API_TOKEN:?CF_DNS_API_TOKEN 未設定，見 .env.example}
+    ports:
+      - ${TRAEFIK_PUBLIC_PORT}:443
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - letsencrypt:/letsencrypt
+    restart: unless-stopped
+
+  # 說明頁：把 USAGE.md 渲染成網頁，給想接入的人看；只限 LAN、NetBird 與路由器 VPN 來源，不對網際網路公開
+  guide:
+    build:
+      context: .
+      dockerfile: guide/Dockerfile
+      args:
+        TRAEFIK_BASE_DOMAIN: ${TRAEFIK_BASE_DOMAIN}
+        TRAEFIK_LAN_DOMAIN: ${TRAEFIK_LAN_DOMAIN}
+        TRAEFIK_PUBLIC_PORT: ${TRAEFIK_PUBLIC_PORT}
+    container_name: traefik-guide
+    networks: [proxy]
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.traefik-guide.rule=Host(`traefik.${TRAEFIK_LAN_DOMAIN}`)
+      - traefik.http.routers.traefik-guide.entrypoints=websecure
+      - traefik.http.routers.traefik-guide.tls=true
+      - traefik.http.routers.traefik-guide.middlewares=traefik-internal-only
+      - traefik.http.middlewares.traefik-internal-only.ipallowlist.sourcerange=192.168.1.0/24,100.64.0.0/10,10.8.0.0/24
+      - traefik.http.services.traefik-guide.loadbalancer.server.port=80
+    restart: unless-stopped
+
+configs:
+  # 萬用字元憑證掛在 default store，接入方 router 只設 tls=true 即以 SNI 取用；掛在 router 上無法正確簽出萬用字元
+  tls:
+    content: |
+      tls:
+        stores:
+          default:
+            defaultGeneratedCert:
+              resolver: le
+              domain:
+                main: "${TRAEFIK_BASE_DOMAIN:?TRAEFIK_BASE_DOMAIN 未設定，見 .env.example}"
+                sans:
+                  - "*.${TRAEFIK_BASE_DOMAIN}"
+                  - "${TRAEFIK_LAN_DOMAIN:?TRAEFIK_LAN_DOMAIN 未設定，見 .env.example}"
+                  - "*.${TRAEFIK_LAN_DOMAIN}"
+
+networks:
+  # 接入契約：名稱、網段與 Traefik IP 變更須同步所有接入方
+  proxy:
+    name: traefik-proxy
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
+
+volumes:
+  letsencrypt:
