@@ -56,20 +56,40 @@
 
 ### 2. 安裝 NetBird
 
-到官方下載頁 <https://netbird.io/download> 安裝對應系統的版本（Windows、macOS、Linux、iOS、Android）。
+從下列官方網址擇一下載，依作業系統安裝（Windows、macOS、Linux、iOS、Android）：
+
+- <https://app.netbird.io/install>
+- <https://docs.netbird.io/get-started/install>
 
 ### 3. 設定伺服器並登入
 
-NetBird 預設連官方雲端，要改成公司的伺服器 `https://netbird.wan.example.com`：
+NetBird 預設連官方雲端，要改成公司的伺服器 **https://netbird.wan.example.com**（下方截圖僅示意，網址以此處為準）。
 
-- **桌面版**：在 NetBird 圖示選單的設定中，把 Management URL 改成上述網址。
-- **命令列**：執行下列指令。
+**桌面版**：
+
+1. 啟動 APP 後新增設定檔（Profile）：
+
+   ![新增設定檔](assets/netbird-add-profile.png)
+
+   - **Profile Name**：輸入好辨識的名稱，例如 `Office-VPN`。
+   - **Management Server**：選 `Self-hosted`，輸入上述網址。
+   - 按 `Add Profile`。
+
+2. 在連線面板上方選單選擇剛建立的設定檔，打開 VPN 開關：
+
+   ![連線面板](assets/netbird-connect-panel.png)
+
+3. 瀏覽器開啟登入頁，輸入申請到的 email 與密碼，按 `Sign in`：
+
+   ![登入](assets/netbird-sign-in.png)
+
+4. 回到連線面板，開關下方的狀態由 `Disconnected` 變為 `Connected` 即完成。要中斷時關閉 VPN 開關。
+
+**命令列**：執行下列指令，瀏覽器會開登入頁，用申請到的帳號登入。
 
 ```bash
 netbird up --management-url https://netbird.wan.example.com
 ```
-
-接著瀏覽器會開登入頁，用申請到的帳號登入；完成後 NetBird 顯示已連線。
 
 ### 4. 確認連線
 

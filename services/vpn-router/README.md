@@ -37,7 +37,7 @@
 
 ## 使用方式
 
-本目錄已備齊所有部署檔（`compose.yaml`、`dnsmasq/`、`guide/`、`USAGE.md`、`.env.example`），安裝只需同步到主機、填 `.env`、依序啟動，不必改檔。`tools/` 指令在 repo 根目錄執行，`<主機>` 填 ssh 主機名（例：minipc-01）；`docker compose` 指令在主機 `~/vpn-router/` 執行。
+本目錄已備齊所有部署檔（`compose.yaml`、`dnsmasq/`、`guide/`、`USAGE.md`、`assets/`、`.env.example`），安裝只需同步到主機、填 `.env`、依序啟動，不必改檔。`tools/` 指令在 repo 根目錄執行，`<主機>` 填 ssh 主機名（例：minipc-01）；`docker compose` 指令在主機 `~/vpn-router/` 執行。
 
 ### 1. 前置
 

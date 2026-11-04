@@ -1,6 +1,7 @@
 # 使用者說明頁：靜態 nginx，index.html 於瀏覽器端渲染 USAGE.md
 FROM nginx:1.30.5-alpine
 COPY guide/index.html USAGE.md /usr/share/nginx/html/
+COPY assets /usr/share/nginx/html/assets
 # 把 USAGE.md 的通用示例（.env.example 的值、443 無 port 的網址）換成本環境的值（由 compose build args 帶入 .env）
 ARG NB_DOMAIN NB_PUBLIC_PORT=443 VPN_GUIDE_DOMAIN HOST_LAN_IP \
     DHCP_POOL_START DHCP_POOL_END DHCP_GATEWAY DHCP_DNS DHCP_ROUTE_NET DHCP_LEASE_TIME
