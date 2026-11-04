@@ -35,7 +35,7 @@ token 建立後只顯示一次，第 4 步填入 `.env`。
 
 ## 4. 同步到主機並建立 `.env`
 
-在 repo 根目錄用 `tools/install.sh` 把本目錄同步到主機 `~/traefik/`（只同步、不啟動；本機沒有 `.env` 時保留主機那份，本機有則覆蓋）：
+在 repo 根目錄用 `tools/install.sh` 把本目錄同步到主機 `~/traefik/`（只同步、不啟動；本機依序找 `.env.<主機名>`、`.env`，有則覆蓋，都沒有就保留主機那份；可用 `-p <profile>` 指定 `.env.<profile>`，不存在即報錯）：
 
 ```bash
 tools/install.sh traefik minipc-01
