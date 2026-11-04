@@ -47,7 +47,7 @@ services:
       context: .
       dockerfile: guide/Dockerfile
       args:
-        TRAEFIK_BASE_DOMAIN: ${TRAEFIK_BASE_DOMAIN}
+        TRAEFIK_BASE_DOMAIN: ${TRAEFIK_BASE_DOMAIN:-}
         TRAEFIK_LAN_DOMAIN: ${TRAEFIK_LAN_DOMAIN}
         TRAEFIK_PUBLIC_PORT: ${TRAEFIK_PUBLIC_PORT}
     container_name: traefik-guide
@@ -71,11 +71,9 @@ configs:
             defaultGeneratedCert:
               resolver: le
               domain:
-                main: "${TRAEFIK_BASE_DOMAIN:?TRAEFIK_BASE_DOMAIN 未設定，見 .env.example}"
-                sans:
-                  - "*.${TRAEFIK_BASE_DOMAIN}"
-                  - "${TRAEFIK_LAN_DOMAIN:?TRAEFIK_LAN_DOMAIN 未設定，見 .env.example}"
-                  - "*.${TRAEFIK_LAN_DOMAIN}"
+                # 對外網域可留空：只支援內網的主機，憑證只簽內網網域
+                main: "${TRAEFIK_BASE_DOMAIN:-${TRAEFIK_LAN_DOMAIN}}"
+                sans: [${TRAEFIK_BASE_DOMAIN:+"*.${TRAEFIK_BASE_DOMAIN}", "${TRAEFIK_LAN_DOMAIN}", }"*.${TRAEFIK_LAN_DOMAIN:?TRAEFIK_LAN_DOMAIN 未設定，見 .env.example}"]
 
 networks:
   # 接入契約：名稱、網段與 Traefik IP 變更須同步所有接入方

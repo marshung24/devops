@@ -11,7 +11,7 @@ MySQL、Redis、MQTT 等一般 TCP 服務與 UDP 服務不經本入口：它們�
 
 ## 網址
 
-每個服務取一個名稱，兩組根網域各用一次；DNS 與萬用字元憑證都已涵蓋，不必再設。只涵蓋下一層，`a.b.wan.example.com` 不行。
+每個服務取一個名稱，本主機的根網域各用一次；DNS 與萬用字元憑證都已涵蓋，不必再設。只涵蓋下一層，`a.b.wan.example.com` 不行。
 
 | 用途 | 網址 |
 |---|---|
@@ -20,7 +20,7 @@ MySQL、Redis、MQTT 等一般 TCP 服務與 UDP 服務不經本入口：它們�
 
 ## compose 範例
 
-以下以 project `myproj` 的服務 `myapp`（容器內聽 8080）為例。要點：接上外部網路 `traefik-proxy`、加 `traefik.enable=true`；router 同時列兩組網域、走 `websecure`、開 TLS；主機不必 publish port。
+以下以 project `myproj` 的服務 `myapp`（容器內聽 8080）為例。要點：接上外部網路 `traefik-proxy`、加 `traefik.enable=true`；router 列出本主機所有根網域、走 `websecure`、開 TLS；主機不必 publish port。
 
 ```yaml
 services:
@@ -50,7 +50,7 @@ networks:
 openssl s_client -connect lan.example.com:443 -servername <網域> </dev/null 2>/dev/null | openssl x509 -noout -issuer -ext subjectAltName
 ```
 
-簽發者為 Let's Encrypt、SAN 含兩組根網域與其 `*.` 即成功；顯示 `TRAEFIK DEFAULT CERT` 表示憑證尚未簽好或網域不在涵蓋範圍，請洽維運者。
+簽發者為 Let's Encrypt、SAN 含本主機根網域與其 `*.` 即成功；顯示 `TRAEFIK DEFAULT CERT` 表示憑證尚未簽好或網域不在涵蓋範圍，請洽維運者。
 
 ## 規則（接入契約，變更須同步所有接入方）
 
@@ -58,7 +58,7 @@ openssl s_client -connect lan.example.com:443 -servername <網域> </dev/null 2>
 |---|---|
 | 網路 | 接 `traefik-proxy`（172.30.0.0/24）；🚫 不得佔用 `172.30.0.10`（Traefik） |
 | entrypoint | 一律寫 `entrypoints=websecure` |
-| 網域 | rule 同時列兩組根網域；只列對外網域時 LAN 內連不到 |
+| 網域 | rule 列出本主機所有根網域；漏列的網域連不到 |
 | 憑證 | `tls=true`，自動取用萬用字元憑證；根網域外的名稱改用 `tls.certresolver=le` 單獨申請（該網域須在 token 可管理的 zone 內並自行設 DNS） |
 | 命名 | router／service／middleware 以 `<project>-` 開頭；名稱整台共用，重名會被略過 |
 | 信任代理標頭 | 後端要讀 `X-Forwarded-*` 時，trusted proxy 設 `172.30.0.10/32` |

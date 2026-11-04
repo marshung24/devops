@@ -41,7 +41,7 @@ token 建立後只顯示一次，第 4 步填入 `.env`。
 tools/install.sh traefik minipc-01
 ```
 
-到主機以範本建立 `.env`，填入 `ACME_EMAIL`、`CF_DNS_API_TOKEN` 與兩組根網域；各變數說明見 `.env.example`：
+到主機以範本建立 `.env`，填入 `ACME_EMAIL`、`CF_DNS_API_TOKEN` 與根網域（只支援內網的主機，對外網域留空）；各變數說明見 `.env.example`：
 
 ```bash
 ssh minipc-01
