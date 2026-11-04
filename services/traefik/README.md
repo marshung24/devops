@@ -9,6 +9,7 @@
 | Port | 協定 | 對外 | 用途 |
 |---|---|---|---|
 | 443（`TRAEFIK_PUBLIC_PORT`；主機 443 被佔用時改用其他 port，網址須帶 `:port`） | TCP | ✅ 路由器轉送到 .21 | 所有接入服務與說明頁的 HTTPS |
+| 80（`TRAEFIK_HTTP_PORT`；留空時只綁 loopback） | TCP | ❌ | 內網 HTTP，不跳轉 HTTPS，接入方須另設 router |
 
 ## 1. Cloudflare DNS（一次性）
 

@@ -17,6 +17,7 @@ services:
       # 萬用字元憑證設定（configs.tls）
       - --providers.file.filename=/etc/traefik/tls.yaml
       - --entrypoints.websecure.address=:443
+      - --entrypoints.web.address=:80
       # gRPC 長連線不可逾時
       - --entrypoints.websecure.transport.respondingTimeouts.readTimeout=0
       - --entrypoints.websecure.transport.respondingTimeouts.writeTimeout=0
@@ -35,6 +36,8 @@ services:
       CF_DNS_API_TOKEN: ${CF_DNS_API_TOKEN:?CF_DNS_API_TOKEN 未設定，見 .env.example}
     ports:
       - ${TRAEFIK_PUBLIC_PORT}:443
+      # 留空時只綁 loopback：主機 80 被佔用或不開放 HTTP 時用
+      - ${TRAEFIK_HTTP_PORT:-127.0.0.1:18080}:80
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - letsencrypt:/letsencrypt
@@ -53,12 +56,16 @@ services:
     container_name: traefik-guide
     networks: [proxy]
     labels:
-      - traefik.enable=true
-      - traefik.http.routers.traefik-guide.rule=HostRegexp(`.+`) && (ClientIP(`10.0.0.0/8`) || ClientIP(`172.16.0.0/12`) || ClientIP(`192.168.0.0/16`) || ClientIP(`100.64.0.0/10`))
-      - traefik.http.routers.traefik-guide.priority=1
-      - traefik.http.routers.traefik-guide.entrypoints=websecure
-      - traefik.http.routers.traefik-guide.tls=true
-      - traefik.http.services.traefik-guide.loadbalancer.server.port=80
+      traefik.enable: true
+      traefik.http.routers.traefik-guide.rule: &guide-rule HostRegexp(`.+`) && (ClientIP(`10.0.0.0/8`) || ClientIP(`172.16.0.0/12`) || ClientIP(`192.168.0.0/16`) || ClientIP(`100.64.0.0/10`))
+      traefik.http.routers.traefik-guide.priority: 1
+      traefik.http.routers.traefik-guide.entrypoints: websecure
+      traefik.http.routers.traefik-guide.tls: true
+      # HTTP 另設 router：tls=true 的 router 不聽 web
+      traefik.http.routers.traefik-guide-http.rule: *guide-rule
+      traefik.http.routers.traefik-guide-http.priority: 1
+      traefik.http.routers.traefik-guide-http.entrypoints: web
+      traefik.http.services.traefik-guide.loadbalancer.server.port: 80
     restart: unless-stopped
 
 configs:
