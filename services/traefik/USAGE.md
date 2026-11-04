@@ -1,7 +1,13 @@
-# 讓其他服務使用 minipc-01 共用 Traefik（接入者）
+# 讓其他服務使用本主機共用 Traefik（接入者）
 
-> 何時讀：要讓自己的 compose project 經本入口對外提供 HTTPS 時。本文即說明頁 `https://traefik.lan.example.com`（`traefik.<TRAEFIK_LAN_DOMAIN>`，只限 LAN、NetBird 與路由器 VPN 來源）的內容。
+> 何時讀：要讓自己的 compose project 經本入口對外提供 HTTPS 時。本文即說明頁 `https://traefik.lan.example.com`（`traefik.<TRAEFIK_LAN_DOMAIN>`，只限私有網段與 NetBird 來源）的內容。
 > 前提：Traefik 已由維運者安裝並運作（安裝設定見同目錄 `README.md`）。你只需照下列方式修改**你自己的** `compose.yaml`，不必動 Traefik 的任何檔案。
+
+## 適用範圍
+
+本入口給走 HTTP 系協定的服務用：網站、REST API、gRPC、WebSocket。
+
+MySQL、Redis、MQTT 等一般 TCP 服務與 UDP 服務不經本入口：它們無法靠網域共用 port，要開專用 entrypoint，好處也有限。同機應用直接走 Docker 網路，跨機才開 port。
 
 ## 網址
 
@@ -38,10 +44,10 @@ networks:
 
 ## 驗證憑證
 
-在 LAN 內用下列指令直連 .21 查看憑證，`<網域>` 換成要查的名稱（如 `myapp.lan.example.com`）：
+在 LAN 內用下列指令直連本主機查看憑證，`<網域>` 換成要查的名稱（如 `myapp.lan.example.com`）：
 
 ```bash
-openssl s_client -connect 192.168.1.21:443 -servername <網域> </dev/null 2>/dev/null | openssl x509 -noout -issuer -ext subjectAltName
+openssl s_client -connect lan.example.com:443 -servername <網域> </dev/null 2>/dev/null | openssl x509 -noout -issuer -ext subjectAltName
 ```
 
 簽發者為 Let's Encrypt、SAN 含兩組根網域與其 `*.` 即成功；顯示 `TRAEFIK DEFAULT CERT` 表示憑證尚未簽好或網域不在涵蓋範圍，請洽維運者。
