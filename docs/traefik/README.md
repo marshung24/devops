@@ -34,7 +34,7 @@
 
 - **DNS**：對外根網域跟著 DDNS 指公網 IP；LAN 根網域各自直接指該主機 LAN IP，LAN 內不經路由器（無 NAT loopback）；皆不走 Cloudflare proxy，以免攔下非標準 port 與 gRPC。兩組都含 `*.`，接入方用根網域下一層的名稱即可，不必再設 DNS。具體記錄讀 `services/traefik/README.md`〈1. Cloudflare DNS〉。
 - **只支援內網的主機**：`TRAEFIK_BASE_DOMAIN` 留空，憑證只簽內網網域與其 `*.`，說明頁不顯示外網示例。
-- **TLS**：萬用字元只能用 DNS-01；DNS-01 只需 Cloudflare API 建 TXT，申請與續期不需對外開 80/443；生效檢查查公共 DNS，不受主機（含 ppp0）解析器影響。萬用字元憑證掛在 TLS default store（掛在 router 上無法正確簽出，traefik/traefik#12109），接入方 router 只設 `tls=true` 即以 SNI 取用；根網域外的名稱仍可用 certresolver `le` 單獨申請。
+- **TLS**：對外網域有 `*.` CNAME 時也會命中 `_acme-challenge`，追到 DDNS 網域就無法建 TXT，故設 `LEGO_DISABLE_CNAME_SUPPORT`，TXT 一律建在 Cloudflare。萬用字元只能用 DNS-01；DNS-01 只需 Cloudflare API 建 TXT，申請與續期不需對外開 80/443；生效檢查查公共 DNS，不受主機（含 ppp0）解析器影響。萬用字元憑證掛在 TLS default store（掛在 router 上無法正確簽出，traefik/traefik#12109），接入方 router 只設 `tls=true` 即以 SNI 取用；根網域外的名稱仍可用 certresolver `le` 單獨申請。
 - **HTTP**：`tls=true` 的 router 只聽 TLS，走 HTTP 要另設 `entrypoints=web`、不設 tls 的 router，接入方自行決定是否提供。HTTP 為明文，只在沒有對外轉送的主機開放。
 - **gRPC／長連線**：entrypoint 與後端逾時皆關閉，供 NetBird 等長連線服務使用。
 - **預設頁**：說明頁 router 用 `HostRegexp` 全匹配加 `ClientIP`、優先序 -1，接入方即使設優先序 1 也優先；內部來源打錯名稱或接入方未啟動時會看到說明頁而非 404，查路由看 log。以 IP 連線時憑證不含 IP，瀏覽器會警告。

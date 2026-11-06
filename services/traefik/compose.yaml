@@ -36,6 +36,8 @@ services:
         target: /etc/traefik/tls.yaml
     environment:
       CF_DNS_API_TOKEN: ${CF_DNS_API_TOKEN:?CF_DNS_API_TOKEN 未設定，見 .env.example}
+      # *.<對外網域> 的 CNAME 也會命中 _acme-challenge，追到 DDNS 網域就建不了 TXT，故不追 CNAME
+      LEGO_DISABLE_CNAME_SUPPORT: "true"
     ports:
       - ${TRAEFIK_PUBLIC_PORT}:443
       # 留空時只綁 loopback：主機 80 被佔用或不開放 HTTP 時用
