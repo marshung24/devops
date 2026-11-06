@@ -67,7 +67,7 @@ openssl s_client -connect lan.example.com:443 -servername <網域> </dev/null 2>
 |---|---|
 | 網路 | 接 `traefik-proxy`（172.30.0.0/24）；🚫 不得佔用 `172.30.0.10`（Traefik） |
 | entrypoint | 一律寫 `entrypoints=websecure` |
-| 網域 | rule 列出本主機所有根網域；漏列的網域連不到 |
+| 網域 | rule 列出本主機所有根網域；漏列的網域連不到。只寫內網名稱不是安全邊界，外網仍可帶該 Host 連入，機敏服務不要接本入口 |
 | 憑證 | `tls=true`，自動取用萬用字元憑證；根網域外的名稱改用 `tls.certresolver=le` 單獨申請（該網域須在 token 可管理的 zone 內並自行設 DNS） |
 | 命名 | router／service／middleware 以 `<project>-` 開頭；名稱整台共用，重名會被略過 |
 | 信任代理標頭 | 後端要讀 `X-Forwarded-*` 時，trusted proxy 設 `172.30.0.10/32` |
