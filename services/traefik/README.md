@@ -17,7 +17,7 @@
 
 | 用途 | 類型 | 名稱 | 內容 |
 |---|---|---|---|
-| 對外（`TRAEFIK_BASE_DOMAIN`） | CNAME | `wan`、`*.wan` | `openhes468.ddns.net`（DDNS，跟著公網 IP） |
+| 對外（`TRAEFIK_BASE_DOMAIN`） | CNAME | `wan`、`*.wan` | `myhost.ddns.net`（DDNS，跟著公網 IP） |
 | 內網（`TRAEFIK_LAN_DOMAIN`） | A | `lan`、`*.lan` | `192.168.1.21` |
 
 ## 2. Cloudflare API token
