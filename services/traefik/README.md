@@ -1,4 +1,4 @@
-# traefik：minipc-01 共用 HTTPS 入口（安裝設定）
+# traefik：主機共用 HTTPS 入口（安裝設定）
 
 > 何時讀：要安裝、設定、維運或排查本服務時。要把自己的服務接上本入口，讀 [USAGE.md](USAGE.md)（即說明頁 `https://traefik.lan.example.com` 的內容）。要知道為何這樣設計、改規則的影響與風險，讀 [docs/traefik/README.md](../../docs/traefik/README.md)。
 
@@ -9,6 +9,7 @@
 | Port | 協定 | 對外 | 用途 |
 |---|---|---|---|
 | 443（`TRAEFIK_PUBLIC_PORT`；主機 443 被佔用時改用其他 port，網址須帶 `:port`） | TCP | ✅ 路由器轉送到 .21 | 所有接入服務與說明頁的 HTTPS |
+| 80（`TRAEFIK_HTTP_PORT`；留空時只綁 loopback） | TCP | ❌ | 內網 HTTP，不跳轉 HTTPS，接入方須另設 router |
 
 ## 1. Cloudflare DNS（一次性）
 
@@ -16,7 +17,7 @@
 
 | 用途 | 類型 | 名稱 | 內容 |
 |---|---|---|---|
-| 對外（`TRAEFIK_BASE_DOMAIN`） | CNAME | `wan`、`*.wan` | `openhes468.ddns.net`（DDNS，跟著公網 IP） |
+| 對外（`TRAEFIK_BASE_DOMAIN`） | CNAME | `wan`、`*.wan` | `myhost.ddns.net`（DDNS，跟著公網 IP） |
 | 內網（`TRAEFIK_LAN_DOMAIN`） | A | `lan`、`*.lan` | `192.168.1.21` |
 
 ## 2. Cloudflare API token
@@ -41,7 +42,7 @@ token 建立後只顯示一次，第 4 步填入 `.env`。
 tools/install.sh traefik minipc-01
 ```
 
-到主機以範本建立 `.env`，填入 `ACME_EMAIL`、`CF_DNS_API_TOKEN` 與兩組根網域；各變數說明見 `.env.example`：
+到主機以範本建立 `.env`，填入 `ACME_EMAIL`、`CF_DNS_API_TOKEN` 與根網域（只支援內網的主機，對外網域留空）；各變數說明見 `.env.example`：
 
 ```bash
 ssh minipc-01

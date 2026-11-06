@@ -1,4 +1,4 @@
-# minipc-01 共用 HTTPS 入口：各 compose project 經外部網路 traefik-proxy 接入；設計見 docs/traefik/README.md
+# 主機共用 HTTPS 入口：各 compose project 經外部網路 traefik-proxy 接入；設計見 docs/traefik/README.md
 # 參數與密鑰都在 .env（見 .env.example）；安裝設定見 README.md，接入方式見 USAGE.md（由 guide 說明頁提供）
 name: traefik
 
@@ -17,6 +17,9 @@ services:
       # 萬用字元憑證設定（configs.tls）
       - --providers.file.filename=/etc/traefik/tls.yaml
       - --entrypoints.websecure.address=:443
+      - --entrypoints.web.address=:80
+      # 只信任來源主機帶的 PROXY protocol；沒人轉入時維持 loopback
+      - --entrypoints.websecure.proxyProtocol.trustedIPs=${TRAEFIK_PROXY_TRUSTED_IPS:-127.0.0.1/32}
       # gRPC 長連線不可逾時
       - --entrypoints.websecure.transport.respondingTimeouts.readTimeout=0
       - --entrypoints.websecure.transport.respondingTimeouts.writeTimeout=0
@@ -35,30 +38,36 @@ services:
       CF_DNS_API_TOKEN: ${CF_DNS_API_TOKEN:?CF_DNS_API_TOKEN 未設定，見 .env.example}
     ports:
       - ${TRAEFIK_PUBLIC_PORT}:443
+      # 留空時只綁 loopback：主機 80 被佔用或不開放 HTTP 時用
+      - ${TRAEFIK_HTTP_PORT:-127.0.0.1:18080}:80
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - letsencrypt:/letsencrypt
     restart: unless-stopped
 
-  # 說明頁：把 USAGE.md 渲染成網頁，給想接入的人看；只限 LAN、NetBird 與路由器 VPN 來源，不對網際網路公開
+  # 說明頁：把 USAGE.md 渲染成網頁，給想接入的人看；只限私有網段與 NetBird（100.64.0.0/10）來源，不對網際網路公開
+  # 兼作內部來源的預設頁：全匹配且優先序 -1，接入方設優先序 1 也優先；來源限制寫在規則內，其他來源不匹配，走 Traefik 預設回應
   guide:
     build:
       context: .
       dockerfile: guide/Dockerfile
       args:
-        TRAEFIK_BASE_DOMAIN: ${TRAEFIK_BASE_DOMAIN}
+        TRAEFIK_BASE_DOMAIN: ${TRAEFIK_BASE_DOMAIN:-}
         TRAEFIK_LAN_DOMAIN: ${TRAEFIK_LAN_DOMAIN}
         TRAEFIK_PUBLIC_PORT: ${TRAEFIK_PUBLIC_PORT}
     container_name: traefik-guide
     networks: [proxy]
     labels:
-      - traefik.enable=true
-      - traefik.http.routers.traefik-guide.rule=Host(`traefik.${TRAEFIK_LAN_DOMAIN}`)
-      - traefik.http.routers.traefik-guide.entrypoints=websecure
-      - traefik.http.routers.traefik-guide.tls=true
-      - traefik.http.routers.traefik-guide.middlewares=traefik-internal-only
-      - traefik.http.middlewares.traefik-internal-only.ipallowlist.sourcerange=192.168.1.0/24,100.64.0.0/10,10.8.0.0/24
-      - traefik.http.services.traefik-guide.loadbalancer.server.port=80
+      traefik.enable: true
+      traefik.http.routers.traefik-guide.rule: &guide-rule HostRegexp(`.+`) && (ClientIP(`10.0.0.0/8`) || ClientIP(`172.16.0.0/12`) || ClientIP(`192.168.0.0/16`) || ClientIP(`100.64.0.0/10`))
+      traefik.http.routers.traefik-guide.priority: -1
+      traefik.http.routers.traefik-guide.entrypoints: websecure
+      traefik.http.routers.traefik-guide.tls: true
+      # HTTP 另設 router：tls=true 的 router 不聽 web
+      traefik.http.routers.traefik-guide-http.rule: *guide-rule
+      traefik.http.routers.traefik-guide-http.priority: -1
+      traefik.http.routers.traefik-guide-http.entrypoints: web
+      traefik.http.services.traefik-guide.loadbalancer.server.port: 80
     restart: unless-stopped
 
 configs:
@@ -71,11 +80,36 @@ configs:
             defaultGeneratedCert:
               resolver: le
               domain:
-                main: "${TRAEFIK_BASE_DOMAIN:?TRAEFIK_BASE_DOMAIN 未設定，見 .env.example}"
-                sans:
-                  - "*.${TRAEFIK_BASE_DOMAIN}"
-                  - "${TRAEFIK_LAN_DOMAIN:?TRAEFIK_LAN_DOMAIN 未設定，見 .env.example}"
-                  - "*.${TRAEFIK_LAN_DOMAIN}"
+                # 對外網域可留空：只支援內網的主機，憑證只簽內網網域
+                main: "${TRAEFIK_BASE_DOMAIN:-${TRAEFIK_LAN_DOMAIN}}"
+                sans: [${TRAEFIK_BASE_DOMAIN:+"*.${TRAEFIK_BASE_DOMAIN}", "${TRAEFIK_LAN_DOMAIN}", }${TRAEFIK_EXTRA_DOMAIN:+"${TRAEFIK_EXTRA_DOMAIN}", "*.${TRAEFIK_EXTRA_DOMAIN}", }"*.${TRAEFIK_LAN_DOMAIN:?TRAEFIK_LAN_DOMAIN 未設定，見 .env.example}"]
+      # 跨主機轉送：依 SNI 直通到對方 Traefik，憑證在對方；PROXY protocol 保留真實來源
+      # 未設定時用不存在的名稱與關閉的 port：指回本機 443 會讓帶該 SNI 的連線繞回自己
+      # 未跳脫網域的點，因誤中僅限偽造 SNI 且轉到對方仍無對應路由
+      tcp:
+        routers:
+          forward-a:
+            rule: "HostSNI(`${FORWARD_A_DOMAIN:-forward-a.invalid}`) || HostSNIRegexp(`^.+[.]${FORWARD_A_DOMAIN:-forward-a.invalid}$$`)"
+            entryPoints: [websecure]
+            service: forward-a
+            tls: {passthrough: true}
+          forward-b:
+            rule: "HostSNI(`${FORWARD_B_DOMAIN:-forward-b.invalid}`) || HostSNIRegexp(`^.+[.]${FORWARD_B_DOMAIN:-forward-b.invalid}$$`)"
+            entryPoints: [websecure]
+            service: forward-b
+            tls: {passthrough: true}
+        services:
+          forward-a:
+            loadBalancer:
+              serversTransport: proxy-protocol
+              servers: [{address: "${FORWARD_A_TARGET:-127.0.0.1:9}"}]
+          forward-b:
+            loadBalancer:
+              serversTransport: proxy-protocol
+              servers: [{address: "${FORWARD_B_TARGET:-127.0.0.1:9}"}]
+        serversTransports:
+          proxy-protocol:
+            proxyProtocol: {version: 2}
 
 networks:
   # 接入契約：名稱、網段與 Traefik IP 變更須同步所有接入方

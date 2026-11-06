@@ -60,8 +60,8 @@ fi
 fill=""
 if [[ -f "$envfile" ]]; then
   name="services/$svc/${envfile##*/}"
-  # 行首空白、export、引號都是合法 dotenv 寫法，漏讀會被當成空值放行
-  key='^[[:space:]]*(export[[:space:]]+)?INSTALL_HOSTS='
+  # 行首空白、export、等號旁空白、引號都是合法 dotenv 寫法，漏讀會被當成空值放行
+  key='^[[:space:]]*(export[[:space:]]+)?INSTALL_HOSTS[[:space:]]*=[[:space:]]*'
   allowed=$(sed -nE "s/$key//p" "$envfile" | tr -d "\"'")
   if [[ -z "${allowed// /}" ]]; then
     fill=1
