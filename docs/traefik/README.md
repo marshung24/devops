@@ -5,7 +5,7 @@
 
 ## 1. 目標
 
-每台主機各跑**一個** Traefik，該主機上的 compose project 共用它當 HTTPS 入口，憑證自動簽發；想接入的人看說明頁就能自行接上。minipc-01 同時對外，minipc-02、minipc-03 只支援內網。
+每台主機各跑**一個** Traefik，該主機上的 compose project 共用它當 HTTPS 入口，憑證自動簽發；想接入的人看說明頁就能自行接上。minipc-01 是唯一的外網入口；minipc-02、minipc-03 沒有 NAT，外網流量由 minipc-01 依網域轉入。
 
 範圍限 HTTP 系協定的服務；一般 TCP、UDP 服務不經本入口，邊界讀 `services/traefik/USAGE.md`〈適用範圍〉。
 
@@ -40,6 +40,25 @@
 - **預設頁**：說明頁 router 用 `HostRegexp` 全匹配加 `ClientIP`、優先序 -1，接入方即使設優先序 1 也優先；內部來源打錯名稱或接入方未啟動時會看到說明頁而非 404，查路由看 log。以 IP 連線時憑證不含 IP，瀏覽器會警告。
 - **說明頁**：網域只擋得住解析，擋不住外網直接帶 Host 連 8443，故在規則內以 `ClientIP` 限來源為三段私有網段（涵蓋 LAN 與路由器 VPN）及 NetBird 的 100.64.0.0/10，各主機共用同一規則、不必依網段調整；其餘來源不匹配，名稱正確的接入路由照常、錯誤回 Traefik 預設 404；NetBird 遠端經已發布的 192.168.1.0/24 連入。內容即 `services/traefik/USAGE.md`，接入規則因此只維護一份；文件在 git 中以 `wan.example.com`／`lan.example.com` 與預設 443（網址不帶 port）為通用示例，建置說明頁時代入 `.env` 的實際根網域，port 非 443 時網址補上 `:<port>`。
 - 要部署、查變數、port 或維運指令時讀 `services/traefik/README.md`。
+
+### 跨主機轉送
+
+每台主機有一組對外網域（DNS 都指向同一個公網 IP），流量全部進 minipc-01 的 Traefik，再依網域分流：
+
+```mermaid
+flowchart LR
+    u([使用者]) -->|443| fw[防火牆] --> t1[minipc-01 Traefik]
+    t1 -->|主機 1 的網域| s1[minipc-01 的服務]
+    t1 -->|主機 2 的網域，TLS 直通| f2t2[minipc-02 Traefik] --> s2[minipc-02 的服務]
+    t1 -->|主機 3 的網域，TLS 直通| f3t3[minipc-03 Traefik] --> s3[minipc-03 的服務]
+```
+
+- **直通**：minipc-01 只看 SNI，不解 TLS；憑證由目標主機以 DNS-01 自簽，`TRAEFIK_BASE_DOMAIN` 填該主機的對外網域。
+- **設定**：路由寫在 `configs.tls` 的 `tcp` 區段，由 file provider 載入，目標在 `.env` 的 `FORWARD_*`；未設定的主機使用不會命中的佔位名稱。改動要重建該主機 Traefik。
+- **開放範圍**：由目標主機的服務 `rule` 是否列對外網域決定，依〈內外網區隔〉只靠 hostname。
+- **來源 IP**：以 PROXY protocol v2 把真實來源帶到目標主機，目標主機 `TRAEFIK_PROXY_TRUSTED_IPS` 只信任 minipc-01，外網開不存在的名稱回 404。內網經防火牆 hairpin 時來源是公網 IP，同樣視為外部。
+- **單點**：minipc-01 停機時外網路徑全斷，內網網域不受影響。
+- **主機 1 的對外網域**：以 `TRAEFIK_EXTRA_DOMAIN` 加進 default store 的 SAN，與 `fet` 系列共用一張憑證；重建後到新憑證簽好前，約一兩分鐘會用 Traefik 預設憑證。
 
 ## 5. 上線、風險與回復
 

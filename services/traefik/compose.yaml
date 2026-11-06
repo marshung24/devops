@@ -18,6 +18,8 @@ services:
       - --providers.file.filename=/etc/traefik/tls.yaml
       - --entrypoints.websecure.address=:443
       - --entrypoints.web.address=:80
+      # 只信任來源主機帶的 PROXY protocol；沒人轉入時維持 loopback
+      - --entrypoints.websecure.proxyProtocol.trustedIPs=${TRAEFIK_PROXY_TRUSTED_IPS:-127.0.0.1/32}
       # gRPC 長連線不可逾時
       - --entrypoints.websecure.transport.respondingTimeouts.readTimeout=0
       - --entrypoints.websecure.transport.respondingTimeouts.writeTimeout=0
@@ -80,7 +82,34 @@ configs:
               domain:
                 # 對外網域可留空：只支援內網的主機，憑證只簽內網網域
                 main: "${TRAEFIK_BASE_DOMAIN:-${TRAEFIK_LAN_DOMAIN}}"
-                sans: [${TRAEFIK_BASE_DOMAIN:+"*.${TRAEFIK_BASE_DOMAIN}", "${TRAEFIK_LAN_DOMAIN}", }"*.${TRAEFIK_LAN_DOMAIN:?TRAEFIK_LAN_DOMAIN 未設定，見 .env.example}"]
+                sans: [${TRAEFIK_BASE_DOMAIN:+"*.${TRAEFIK_BASE_DOMAIN}", "${TRAEFIK_LAN_DOMAIN}", }${TRAEFIK_EXTRA_DOMAIN:+"${TRAEFIK_EXTRA_DOMAIN}", "*.${TRAEFIK_EXTRA_DOMAIN}", }"*.${TRAEFIK_LAN_DOMAIN:?TRAEFIK_LAN_DOMAIN 未設定，見 .env.example}"]
+      # 跨主機轉送：依 SNI 直通到對方 Traefik，憑證在對方；PROXY protocol 保留真實來源
+      # 未設定時用不存在的名稱與關閉的 port：指回本機 443 會讓帶該 SNI 的連線繞回自己
+      # 未跳脫網域的點，因誤中僅限偽造 SNI 且轉到對方仍無對應路由
+      tcp:
+        routers:
+          forward-a:
+            rule: "HostSNI(`${FORWARD_A_DOMAIN:-forward-a.invalid}`) || HostSNIRegexp(`^.+[.]${FORWARD_A_DOMAIN:-forward-a.invalid}$$`)"
+            entryPoints: [websecure]
+            service: forward-a
+            tls: {passthrough: true}
+          forward-b:
+            rule: "HostSNI(`${FORWARD_B_DOMAIN:-forward-b.invalid}`) || HostSNIRegexp(`^.+[.]${FORWARD_B_DOMAIN:-forward-b.invalid}$$`)"
+            entryPoints: [websecure]
+            service: forward-b
+            tls: {passthrough: true}
+        services:
+          forward-a:
+            loadBalancer:
+              serversTransport: proxy-protocol
+              servers: [{address: "${FORWARD_A_TARGET:-127.0.0.1:9}"}]
+          forward-b:
+            loadBalancer:
+              serversTransport: proxy-protocol
+              servers: [{address: "${FORWARD_B_TARGET:-127.0.0.1:9}"}]
+        serversTransports:
+          proxy-protocol:
+            proxyProtocol: {version: 2}
 
 networks:
   # 接入契約：名稱、網段與 Traefik IP 變更須同步所有接入方
