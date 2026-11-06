@@ -1,4 +1,4 @@
-# traefik：minipc-01 共用 HTTPS 入口（安裝設定）
+# traefik：主機共用 HTTPS 入口（安裝設定）
 
 > 何時讀：要安裝、設定、維運或排查本服務時。要把自己的服務接上本入口，讀 [USAGE.md](USAGE.md)（即說明頁 `https://traefik.lan.example.com` 的內容）。要知道為何這樣設計、改規則的影響與風險，讀 [docs/traefik/README.md](../../docs/traefik/README.md)。
 

@@ -44,7 +44,7 @@ networks:
 
 ### 同時提供 HTTP
 
-主機有開放 HTTP 時（`http://<名稱>.lan.example.com` 不是連線被拒），可再加一個 router，走 `web`、不設 tls，不會跳轉 HTTPS。HTTP 為明文，只用於內網：
+主機有開放 HTTP 時（`http://<名稱>.lan.example.com` 不是連線被拒；HTTP port 非 80 時網址要帶 port，請洽維運者），可再加一個 router，走 `web`、不設 tls，不會跳轉 HTTPS。HTTP 為明文，只用於內網：
 
 ```yaml
       - traefik.http.routers.myproj-web-http.rule=Host(`myapp.lan.example.com`)
