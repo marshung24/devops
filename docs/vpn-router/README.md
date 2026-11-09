@@ -23,8 +23,8 @@ LAN 筆電 ──DHCP Option 121──→ 轉送主機 ──→ 專線 ──�
 轉送主機須先具備下列條件，本方案不負責建立：
 
 - **往目標網段的路由與轉送**：`ip_forward=1`、FORWARD 放行 LAN ↔ 目標網段、往目標網段 MASQUERADE，且重開機後仍在。舉例：本案 dongle 介面 `enxd23ab9ed64c4`（192.168.0.21/24），`10.10.0.0/16 via 192.168.0.1` 由 root cron 每分鐘維護，iptables 規則持久化於 `/etc/iptables/rules.v4`。
-- **對外入口**：路由器能把 HTTPS port 轉送到轉送主機；建議一併轉送 WireGuard 51820/udp，P2P 較易建立。主機 443 已被佔用時改用其他 port；舉例：本案主機 nginx 佔用 80/443，入口改用 8443。
-- **NAT loopback**：路由器不支援時，LAN 內連不到對外網域；舉例：本案即不支援，見 §4〈本機回連〉。
+- **對外入口**：對外防火牆（或路由器）能把 HTTPS port 轉送到轉送主機；建議一併轉送 WireGuard 51820/udp，P2P 較易建立。主機 443 已被佔用時改用其他 port；舉例：本案主機 nginx 佔用 80/443，入口改用 8443，防火牆外部 443、8443 都轉到主機 8443，外網網址可不帶 port。
+- **NAT loopback**：不支援時，LAN 內連不到對外網域；支援時 LAN 內連得到，但轉送主機看到的來源是防火牆公網 IP。舉例：本案原路由器不支援，現行防火牆支援，見 §4〈本機回連〉。
 
 ⇒ 本方案只補兩件事：讓用戶端把目標網段送到轉送主機，以及遠端可註冊的 NetBird 控制面。
 
@@ -62,7 +62,7 @@ LAN 筆電 ──DHCP Option 121──→ 轉送主機 ──→ 專線 ──�
 - **TLS**：由共用反向代理簽發。
 - **帳號**：內建 IdP 本地帳號。owner 在 Dashboard 以 Add User 建立帳號，方式有兩種：直接建立（系統產生密碼，只顯示一次）或邀請連結（使用者自設密碼，連結有期限）；建立時自動加入群組 `Remote-Users`。建議用邀請連結，密碼不經管理者。
 - **網路**：dashboard、netbird-server 接入反向代理的共用網路；只有 routing peer 用 host network。
-- **本機回連**：routing peer 以 `extra_hosts` 把 `NB_DOMAIN` 指向轉送主機 LAN IP，不依賴 NAT loopback；不支援 NAT loopback 時 LAN 內筆電連不到控制面，NetBird 只供 LAN 外使用。
+- **本機回連**：routing peer 以 `extra_hosts` 把 `NB_DOMAIN` 指向轉送主機 LAN IP，直連不繞防火牆，不受 NAT loopback 有無影響。LAN 內筆電能否連控制面取決於 NAT loopback：不支援時 NetBird 只供 LAN 外使用；支援時可連，但來源 IP 為防火牆公網 IP。
 
 ### NetBird 路由與權限
 
