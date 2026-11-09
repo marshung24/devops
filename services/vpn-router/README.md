@@ -31,7 +31,7 @@
 
 | Port | 協定 | 服務 | 對外 | 用途 |
 |---|---|---|---|---|
-| `NB_PUBLIC_PORT`（預設 443，須同反向代理對外 port） | TCP | 共用反向代理 | ✅ 路由器轉送到轉送主機 | Dashboard、REST API、gRPC（Management／Signal）、Relay |
+| `NB_PUBLIC_PORT`（預設 443，須同反向代理對外 port） | TCP | 共用反向代理 | ✅ 防火牆（或路由器）轉送到轉送主機 | Dashboard、REST API、gRPC（Management／Signal）、Relay |
 | 67 | UDP | dhcp | ❌ 只在 `DHCP_INTERFACE` | DHCP server |
 | 51820 | UDP | netbird | ⭕ 建議轉送到轉送主機 | WireGuard；P2P 失敗時經 Relay（較慢） |
 
@@ -42,7 +42,7 @@
 ### 1. 前置
 
 - 轉送主機已具備往目標網段的路由與轉送（見 docs §2）。
-- 路由器：轉送 `NB_PUBLIC_PORT`/tcp → 轉送主機；建議一併轉送 51820/udp。
+- 對外防火牆（或路由器）：轉送 `NB_PUBLIC_PORT`/tcp → 轉送主機；建議一併轉送 51820/udp。
 - 共用反向代理已上線（見〈依賴〉）；尚未部署時先依 [services/traefik](../traefik/README.md) 安裝。
 
 ### 2. 同步到主機並建立 `.env`
