@@ -7,7 +7,9 @@
 
 本入口給走 HTTP 系協定的服務用：網站、REST API、gRPC、WebSocket。
 
-MySQL、Redis、MQTT 等一般 TCP 服務與 UDP 服務不經本入口：它們無法靠網域共用 port，要開專用 entrypoint，好處也有限。同機應用直接走 Docker 網路，跨機才開 port。
+MySQL、Redis、MQTT 等一般 TCP 服務與 UDP 服務無法靠網域共用 port，要經本入口得開專用 entrypoint，請洽維運者。
+
+**後端程式連 DB、Redis 這類要求低延遲的服務**：用容器內網路（容器名、compose 服務名或容器 IP）。走外部 DNS 加 Traefik 會多幾段路，速度較慢。經 Traefik 的 DB、Redis 連線只建議用於外部查詢或人工查詢。
 
 ## 網址
 
@@ -17,6 +19,10 @@ MySQL、Redis、MQTT 等一般 TCP 服務與 UDP 服務不經本入口：它們�
 |---|---|
 | 外網 | `https://<名稱>.wan.example.com` |
 | LAN 內 | `https://<名稱>.lan.example.com` |
+
+> **建議只用 LAN 內網址**：在公司 LAN 或連上 NetBird 時使用；這個名稱解析到內網 IP，外網用網址連不到。但名稱不是安全邊界，有人刻意帶這個 Host 連外網入口仍可能進來（見〈接入契約〉），機敏服務不要接本入口。
+>
+> 外網網址會對所有人開放，要開之前請先評估必要性與安全性：是否真的需要從 LAN 與 NetBird 以外連入、服務本身有沒有登入保護、資料是否敏感。
 
 ## compose 範例
 
@@ -29,7 +35,8 @@ services:
     networks: [proxy]
     labels:
       - traefik.enable=true
-      - traefik.http.routers.myproj-web.rule=Host(`myapp.wan.example.com`) || Host(`myapp.lan.example.com`)
+      - traefik.http.routers.myproj-web.rule=Host(`myapp.lan.example.com`)
+      # 評估後確定要開外網時，改為：Host(`myapp.wan.example.com`) || Host(`myapp.lan.example.com`)
       - traefik.http.routers.myproj-web.entrypoints=websecure
       - traefik.http.routers.myproj-web.tls=true
       - traefik.http.services.myproj-web.loadbalancer.server.port=8080
