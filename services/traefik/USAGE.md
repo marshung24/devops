@@ -7,9 +7,12 @@
 
 本入口給走 HTTP 系協定的服務用：網站、REST API、gRPC、WebSocket。
 
-MySQL、Redis、MQTT 等一般 TCP 服務與 UDP 服務無法靠網域共用 port，要經本入口得開專用 entrypoint，請洽維運者。
+MySQL、Redis、MQTT 等一般 TCP 服務與 UDP 服務不經本入口：明文連線裡沒有網域，無法依名稱分流，只能一個 port 對一個服務。要讓外部連入時：
 
-**後端程式連 DB、Redis 這類要求低延遲的服務**：用容器內網路（容器名、compose 服務名或容器 IP）。走外部 DNS 加 Traefik 會多幾段路，速度較慢。經 Traefik 的 DB、Redis 連線只建議用於外部查詢或人工查詢。
+- **直接連線**：在服務的 compose 做主機 port mapping，建議只綁主機內網 IP（例：`<主機內網 IP>:3306:3306`），供 LAN 與 NetBird 使用。
+- **網頁管理**：另架 Web 管理容器（例：phpMyAdmin、RedisInsight），網頁經本入口提供，管理容器再以容器內網路連到 DB。
+
+**後端程式連 DB、Redis 這類要求低延遲的服務**：用容器內網路（容器名、compose 服務名或容器 IP），不要繞主機 port 或外部網域，路徑較長也較慢。
 
 ## 網址
 
