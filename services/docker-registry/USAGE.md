@@ -48,6 +48,28 @@ docker buildx build --platform linux/amd64 -t registry.lan.example.com/myapp:dev
 
 用完的 tag 請自行刪除，避免佔滿空間。
 
+## 不經 registry：OCI layout＋rsync
+
+不想依賴本服務時，可把 image 存成 OCI layout 目錄：每個 layer 是一個以內容雜湊（digest）命名的檔案，同一份 layer 只存一次。再用 rsync 只傳目標端沒有的檔案，一樣做到 layer 級的差異傳輸。
+
+```bash
+# 來源端：image 匯出到 OCI layout 目錄；多個 image 可共用同一目錄，以 ref 名稱（冒號後）區分
+skopeo copy docker-daemon:myapp:dev oci:/srv/oci-store:myapp-dev
+# 傳 layer：檔名即內容雜湊、內容不會變，目標端已有的一律略過（不看修改時間，避免整批重傳）
+rsync -a --ignore-existing /srv/oci-store/blobs/ deploy-host:/srv/oci-store/blobs/
+# 傳索引：index.json 記錄目錄內有哪些 image，放在 layer 之後傳，避免指到還沒傳到的 layer
+rsync -a /srv/oci-store/index.json /srv/oci-store/oci-layout deploy-host:/srv/oci-store/
+# 目標端：從 OCI layout 載入 docker
+ssh deploy-host skopeo copy oci:/srv/oci-store:myapp-dev docker-daemon:myapp:dev
+```
+
+- **前提**：兩端都要有 skopeo，沒裝時可改跑容器 `quay.io/skopeo/stable`，並掛載 `/var/run/docker.sock` 與目錄；兩端之間要能 ssh。
+- **要省流量**：兩端都長期沿用同一個目錄，新 image 只會多出變動的 layer。
+- **單一來源**：目標端目錄只由一個來源端寫入；`index.json` 整份覆蓋，目標端自己加的 image 會被蓋掉。
+- **清理**：目錄只增不減，沒有 GC；空間不足時刪掉整個目錄重來。
+- **與 registry 相比**：不需常駐服務，但沒有清單頁，也不方便多人共用；適合固定一對來源、目標的部署。
+- **帳號風險**：傳送者需有目標主機的 ssh 帳號與 docker 權限（等同 root）；🚫 不要為了傳 image 開帳號給他人，改用 registry。
+
 ## 安全須知
 
 - **任何人都能覆寫與刪除**：LAN 與 NetBird 內任何人都可 push、覆寫同名 tag、刪除 tag，刪了無法復原；只刪自己推的，部署前確認來源，重要部署用 digest。
