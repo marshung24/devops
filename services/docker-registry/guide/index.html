@@ -97,9 +97,10 @@
 
   // 刪除 tag：registry 3 支援以 tag 刪除，只移除該 tag，同 digest 的其他 tag 保留；空間待主機 GC 釋放
   async function deleteTag(box, repo, tag) {
-    if (!confirm(`刪除 ${repo}:${tag}？\n任何人都能刪除，刪了無法復原；空間待維運者跑 GC 才釋放。`)) return;
+    if (!confirm(`刪除 ${repo}:${tag}？\n刪了無法復原；空間待維運者跑 GC 才釋放。`)) return;
     const r = await fetch(`/v2/${repo}/manifests/${tag}`, { method: 'DELETE' }).catch(e => ({ ok: false, status: e.message }));
-    if (!r.ok) alert(`刪除失敗：${r.status}`);
+    // 401：主機設了寫入帳密，瀏覽器登入框取消或帳密錯誤
+    if (!r.ok) alert(r.status === 401 ? '刪除失敗：需要寫入帳密（向維運者索取）' : `刪除失敗：${r.status}`);
     box.textContent = '讀取中…';
     renderImages(box);
   }

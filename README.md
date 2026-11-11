@@ -14,4 +14,4 @@
 |---|---|---|---|
 | vpn-router | [docs/vpn-router](docs/vpn-router/README.md) | [services/vpn-router](services/vpn-router/README.md) | minipc-01（192.168.1.21）取代故障的路由器 VPN／靜態路由：LAN 經 DHCP Option 121、遠端經自架 NetBird，前往 10.10.0.0/16 走 4G dongle；遠端另可進 192.168.1.0/24；依賴 traefik；說明頁 `https://<VPN_GUIDE_DOMAIN>:8443`（限 LAN／NetBird 等內部來源） |
 | traefik | [docs/traefik](docs/traefik/README.md) | [services/traefik](services/traefik/README.md) | 各主機共用 HTTPS 入口：各 project 經外部網路 `traefik-proxy` 接入，Let's Encrypt（Cloudflare DNS-01），對外 8443；說明頁 `https://traefik.<TRAEFIK_LAN_DOMAIN>:8443`（限 LAN／NetBird／路由器 VPN） |
-| docker-registry | [docs/docker-registry](docs/docker-registry/README.md) | [services/docker-registry](services/docker-registry/README.md) | 內網開發用 image 暫存區（`registry:3`）：經 traefik 提供 `https://<REGISTRY_DOMAIN>`，同網址為說明頁（image 清單與使用須知），限 LAN／NetBird 來源、無認證；依賴 traefik |
+| docker-registry | [docs/docker-registry](docs/docker-registry/README.md) | [services/docker-registry](services/docker-registry/README.md) | 內網開發用 image 暫存區（`registry:3`）：經 traefik 提供 `https://<REGISTRY_DOMAIN>`，同網址為說明頁（image 清單與使用須知），限 LAN／NetBird 來源，寫入可選用帳密；依賴 traefik |
