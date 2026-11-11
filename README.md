@@ -7,6 +7,7 @@
 - `services/<服務>/`：可部署的服務（compose、映像、`.env.example`）——要部署、調參數或排查時讀其 README。README 會隨服務安裝到主機，`tools/install.sh` 安裝時自動在標題下加註作者（該檔第一次 commit 者）與最後更新（最後一次 commit 者與日期），原檔不必手寫。
 - `tools/install.sh [-n] [-p <profile>] <服務> <ssh 主機>`：把 `services/<服務>/` 同步到主機 `~/<服務>/`（不啟動；刪除主機多餘檔案，設定檔依序找 `-p` 指定的 `.env.<profile>`（不存在即報錯）、`.env.<主機名>`、`.env`，本機有才覆蓋、都沒有就保留主機那份；本機設定檔的 `INSTALL_HOSTS` 須列出目標主機，否則中止，空值時補填本次主機；`-n` 只列變動）。
 - `tools/run.sh [up|down|start|stop|restart|list] <服務> <ssh 主機> [compose 服務...]`：在主機 `~/<服務>/` 執行對應的 `docker compose` 指令（`up` 帶 `-d`）；省略指令或 `list` 列出該服務的容器與狀態。
+- `tools/system/create-admin-user.sh [-k '<ssh 公鑰>'] [-p '<密碼雜湊>'] <帳號>`：在主機上以 sudo 執行（不經 ssh 參數），建立與 fetuser 同權限的帳號（sudo、docker 等附加群組，主機沒有的群組略過）；帳號已存在則只補密碼、群組與公鑰。`-p` 給 `openssl passwd -6` 產生的雜湊，未給則互動設密碼（需 tty，經 ssh 時加 `-t`）。
 
 ## 索引
 

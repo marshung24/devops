@@ -2,7 +2,7 @@
 
 > 何時讀：要安裝、設定、維運或排查本服務時。要把自己的服務接上本入口，讀 [USAGE.md](USAGE.md)（即說明頁 `https://traefik.lan.example.com` 的內容）。要知道為何這樣設計、改規則的影響與風險，讀 [docs/traefik/README.md](../../docs/traefik/README.md)。
 
-本目錄已備齊所有部署檔（`compose.yaml`、`guide/` 說明頁、`.env.example`、說明頁內容 `USAGE.md`），安裝只需同步到主機、填 `.env`、啟動，不必改檔。
+本目錄已備齊所有部署檔（`compose.yaml`、`guide/` 說明頁、`.env.example`、說明頁內容 `USAGE.md`），安裝只需在本機填設定檔、同步到主機、啟動，不必改檔。
 
 ## Port
 
@@ -28,25 +28,21 @@ Traefik 用它在 Cloudflare 建立憑證驗證用的 TXT 記錄。建立路徑�
 - Zone Resources：`Include`／`Specific zone`／根網域所在的 zone
 - 選填：Client IP Address Filtering 限 .21 公網 IP（IP 變動時 token 失效）
 
-token 建立後只顯示一次，第 4 步填入 `.env`。
+token 建立後只顯示一次，第 4 步填入設定檔。
 
 ## 3. Let's Encrypt
 
 免事先註冊：首次簽發時 Traefik 以 `.env` 的 `ACME_EMAIL` 自動建立 ACME 帳號並同意服務條款，帳號金鑰與憑證存於 volume `letsencrypt` 的 `acme.json`。email 只作帳號聯絡（Let's Encrypt 已不寄到期通知），續期由 Traefik 自動處理。
 
-## 4. 同步到主機並建立 `.env`
+## 4. 建立設定檔並同步到主機
 
-在 repo 根目錄用 `tools/install.sh` 把本目錄同步到主機 `~/traefik/`（只同步、不啟動；本機依序找 `.env.<主機名>`、`.env`，有則覆蓋，都沒有就保留主機那份；可用 `-p <profile>` 指定 `.env.<profile>`，不存在即報錯）：
+在本機以範本建立該主機的設定檔 `.env.<主機名>`（不進版控），填入 `ACME_EMAIL`、`CF_DNS_API_TOKEN` 與根網域（只支援內網的主機，對外網域留空），各變數說明見 `.env.example`；再於 repo 根目錄用 `tools/install.sh` 把本目錄同步到主機 `~/traefik/`，設定檔一併存成主機的 `.env`（只同步、不啟動；選檔順序與 `-p <profile>` 見 `tools/install.sh -h`）：
 
 ```bash
+# 本機以範本建立 minipc-01 的設定檔並填值（不進版控）
+cp services/traefik/.env.example services/traefik/.env.minipc-01 && vi services/traefik/.env.minipc-01
+# 同步部署檔到主機 ~/traefik/，設定檔存成主機的 .env（只同步、不啟動）
 tools/install.sh traefik minipc-01
-```
-
-到主機以範本建立 `.env`，填入 `ACME_EMAIL`、`CF_DNS_API_TOKEN` 與根網域（只支援內網的主機，對外網域留空）；各變數說明見 `.env.example`：
-
-```bash
-ssh minipc-01
-cd ~/traefik && cp .env.example .env && vi .env
 ```
 
 ## 5. 啟動
@@ -67,8 +63,8 @@ tools/run.sh up traefik minipc-01
 
 | 目的 | 指令 |
 |---|---|
-| 改 `.env` 後套用 | `docker compose up -d --force-recreate traefik`（只改 configs 內容時不會自動重建） |
-| 改 `USAGE.md`，或改 `.env` 的根網域／port 後更新說明頁 | 先 `tools/install.sh` 同步，再 `docker compose up -d --build guide`（建置時把文件中的示例網域與 port 換成 `.env` 的值） |
+| 改設定後套用 | 本機改 `.env.<主機名>` 並 `tools/install.sh` 同步，再 `docker compose up -d --force-recreate traefik`（只改 configs 內容時不會自動重建） |
+| 改 `USAGE.md`，或改根網域／port 後更新說明頁 | 先 `tools/install.sh` 同步，再 `docker compose up -d --build guide`（建置時把文件中的示例網域與 port 換成 `.env` 的值） |
 | 看 log | `docker compose logs -f traefik` |
 
 停止、重建或回復前讀 docs/traefik §5（會中斷所有接入方）；`down` 不加 `-v` 以保留憑證。
