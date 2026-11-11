@@ -22,7 +22,7 @@ tools/install.sh docker-registry minipc-01
 tools/run.sh up docker-registry minipc-01
 ```
 
-改設定時一樣改本機檔再跑 `tools/install.sh`，套用見〈常用操作〉。
+主機已有舊版說明頁 image 時（如重裝），`tools/run.sh up` 會沿用舊 image 而不重建，改在主機 `~/docker-registry/` 執行 `docker compose up -d --build`。改設定時一樣改本機檔再跑 `tools/install.sh`，套用見〈常用操作〉。
 
 驗證（在 LAN 內）：`curl https://registry.lan.example.com/v2/` 回 `{}`、瀏覽器開 `https://registry.lan.example.com` 看到說明頁與 image 清單；外網來源回 404。有設帳密時 `/v2/` 改回 401（帶 `-u <帳號>` 回 `{}`），未帶帳密 `curl -X POST https://registry.lan.example.com/v2/x/blobs/uploads/` 回 401、帶 `-u <帳號>` 回 202。
 
