@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>內網 image 暫存區</title>
+<style>
+  :root { --bg: #fff; --fg: #1f2328; --muted: #59636e; --line: #d1d9e0; --code: #f6f8fa; --link: #0969da; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0d1117; --fg: #e6edf3; --muted: #9198a1; --line: #3d444d; --code: #151b23; --link: #4493f8; }
+  }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.6 system-ui, "Noto Sans TC", sans-serif; }
+  main { max-width: 920px; margin: 0 auto; padding: 24px 16px 64px; }
+  a { color: var(--link); }
+  h1, h2 { border-bottom: 1px solid var(--line); padding-bottom: .3em; }
+  code, pre { background: var(--code); border-radius: 6px; font: 14px/1.5 ui-monospace, monospace; }
+  code { padding: .15em .35em; }
+  pre { padding: 12px 16px; overflow-x: auto; }
+  pre code { padding: 0; }
+  table { border-collapse: collapse; display: block; overflow-x: auto; }
+  th, td { border: 1px solid var(--line); padding: 6px 12px; text-align: left; }
+  td.num { text-align: right; white-space: nowrap; }
+  button { font: inherit; font-size: 14px; cursor: pointer; }
+  blockquote { margin: 0; padding: 0 1em; color: var(--muted); border-left: 4px solid var(--line); }
+</style>
+</head>
+<body>
+<main id="doc">載入中…</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/15.0.7/marked.min.js"></script>
+<script>
+  // 映像檔清單：同網域 /v2 由 Traefik 直送 registry，無 CORS
+  // 多平台 tag 只列一個平台：優先 linux/amd64，沒有時取第一個非 attestation（unknown/unknown）的平台
+  const ACCEPT = [
+    'application/vnd.oci.image.index.v1+json', 'application/vnd.docker.distribution.manifest.list.v2+json',
+    'application/vnd.oci.image.manifest.v1+json', 'application/vnd.docker.distribution.manifest.v2+json',
+  ].join(', ');
+  const getJSON = async (path, accept) => {
+    const r = await fetch(path, { headers: accept ? { Accept: accept } : {} });
+    if (!r.ok) throw new Error(`${r.status} ${path}`);
+    return r.json();
+  };
+
+  // 單一 tag → { platform, size（壓縮後 layer＋config 總和，即 pull 傳輸量上限）, created }
+  async function tagInfo(repo, tag) {
+    let m = await getJSON(`/v2/${repo}/manifests/${tag}`, ACCEPT), platform = '';
+    if (m.manifests) {
+      const list = m.manifests.filter(d => d.platform && d.platform.os !== 'unknown');
+      const d = list.find(d => d.platform.os === 'linux' && d.platform.architecture === 'amd64') || list[0];
+      if (!d) return { platform: '-' };
+      platform = `${d.platform.os}/${d.platform.architecture}${d.platform.variant ? '/' + d.platform.variant : ''}`;
+      m = await getJSON(`/v2/${repo}/manifests/${d.digest}`, ACCEPT);
+    }
+    const cfg = await getJSON(`/v2/${repo}/blobs/${m.config.digest}`);
+    platform ||= `${cfg.os}/${cfg.architecture}`;
+    return { platform, size: m.config.size + m.layers.reduce((s, l) => s + l.size, 0), created: cfg.created };
+  }
+
+  const fmtSize = n => n == null ? '-' : n >= 1 << 30 ? (n / (1 << 30)).toFixed(2) + ' GiB' : (n / (1 << 20)).toFixed(1) + ' MiB';
+  const fmtTime = t => t ? new Date(t).toLocaleString('zh-TW', { hour12: false }) : '-';
+
+  async function renderImages(box) {
+    try {
+      // registry 單頁上限 1000，超過即 400；開發用量不分頁
+      const { repositories = [] } = await getJSON('/v2/_catalog?n=1000');
+      if (!repositories.length) { box.textContent = '目前沒有任何 image。'; return; }
+      // 單一 repository 失敗只標示該列：推送中尚無 tag 時 tags/list 回 404
+      const rows = (await Promise.all(repositories.map(async repo => {
+        let tags;
+        try { ({ tags } = await getJSON(`/v2/${repo}/tags/list`)); }
+        catch (e) { return [{ repo, tag: '-', platform: '讀取失敗', error: e.message }]; }
+        return Promise.all((tags || []).map(tag =>
+          tagInfo(repo, tag).catch(e => ({ platform: '讀取失敗', error: e.message })).then(i => ({ repo, tag, ...i }))));
+      }))).flat();
+      // 同 repository 內新的在前
+      rows.sort((a, b) => a.repo.localeCompare(b.repo) || (b.created || '').localeCompare(a.created || ''));
+      const table = document.createElement('table');
+      table.innerHTML = '<thead><tr><th>Image</th><th>Tag</th><th>平台</th><th>大小</th><th>建立時間</th><th></th></tr></thead>';
+      const tbody = table.createTBody();
+      for (const r of rows) {
+        const tr = tbody.insertRow();
+        [r.repo, r.tag, r.platform, fmtSize(r.size), fmtTime(r.created)].forEach((v, i) => {
+          const td = tr.insertCell(); td.textContent = v; if (i >= 3) td.className = 'num';
+        });
+        if (r.error) tr.title = r.error;
+        if (r.tag !== '-') {
+          const btn = document.createElement('button');
+          btn.textContent = '刪除';
+          btn.onclick = () => deleteTag(box, r.repo, r.tag);
+          tr.insertCell().append(btn);
+        }
+      }
+      box.replaceChildren(table);
+    } catch (e) {
+      box.textContent = `無法讀取 registry：${e.message}`;
+    }
+  }
+
+  // 刪除 tag：registry 3 支援以 tag 刪除，只移除該 tag，同 digest 的其他 tag 保留；空間待主機 GC 釋放
+  async function deleteTag(box, repo, tag) {
+    if (!confirm(`刪除 ${repo}:${tag}？\n刪了無法復原；空間待維運者跑 GC 才釋放。`)) return;
+    const r = await fetch(`/v2/${repo}/manifests/${tag}`, { method: 'DELETE' }).catch(e => ({ ok: false, status: e.message }));
+    // 401：主機設了寫入帳密，瀏覽器登入框取消或帳密錯誤
+    if (!r.ok) alert(r.status === 401 ? '刪除失敗：需要寫入帳密（向維運者索取）' : `刪除失敗：${r.status}`);
+    box.textContent = '讀取中…';
+    renderImages(box);
+  }
+
+  // 取同目錄的 USAGE.md 渲染；CDN 載不到時退回純文字（清單仍附在最上方）
+  fetch('USAGE.md').then(r => r.text()).then(md => {
+    const doc = document.getElementById('doc');
+    if (window.marked) {
+      doc.innerHTML = marked.parse(md);
+      // 標題 id 比照 GitHub 規則（去標點、空白轉 -），讓文件內的錨點連結可用
+      doc.querySelectorAll('h1,h2,h3,h4').forEach(h => {
+        h.id = h.textContent.trim().toLowerCase().replace(/[^\p{L}\p{N}\s-]/gu, '').replace(/\s/g, '-');
+      });
+      if (location.hash) document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView();
+    }
+    else { doc.textContent = md; doc.style.whiteSpace = 'pre-wrap'; doc.prepend(Object.assign(document.createElement('div'), { id: 'images' })); }
+    const box = document.getElementById('images');
+    box.textContent = '讀取中…';
+    renderImages(box);
+  });
+</script>
+</body>
+</html>

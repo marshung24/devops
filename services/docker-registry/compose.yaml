@@ -1,0 +1,60 @@
+# 內網開發用 image 暫存區＋說明頁：經主機共用 Traefik 提供 HTTPS，只限 LAN／NetBird 來源，寫入可選用帳密；設計見 docs/docker-registry/README.md
+# 參數在 .env（見 .env.example）；安裝見 README.md，使用方式見 USAGE.md（由 guide 說明頁提供）
+name: docker-registry
+
+services:
+  registry:
+    image: registry:3.0.0
+    container_name: docker-registry
+    networks: [proxy]
+    environment:
+      REGISTRY_LOG_LEVEL: info
+      # 開放刪除（未設寫入認證時任何允許來源都能刪）；刪除只移除參照，須在主機跑 GC 才釋放空間（見 README〈常用操作〉）
+      REGISTRY_STORAGE_DELETE_ENABLED: "true"
+      # 上傳流程的 Location 改相對路徑，不受對外 port（8443 等）與代理標頭影響
+      REGISTRY_HTTP_RELATIVEURLS: "true"
+      # 關閉 tracing 匯出：預設送往 localhost:4318，無收集端時每 10 秒報錯洗版
+      OTEL_TRACES_EXPORTER: none
+    volumes:
+      # 主機目錄，放服務目錄外：tools/install.sh 同步時會刪除主機多餘檔案；不存在時 docker 自動建立
+      - ${REGISTRY_DATA_DIR:?REGISTRY_DATA_DIR 未設定，見 .env.example}:/var/lib/registry
+    labels:
+      traefik.enable: true
+      # 同網域下 /v2 直達 registry，其餘給 guide；規則較長，Traefik 預設優先序高於 guide
+      # 來源限制：只放行私有網段與 NetBird（100.64.0.0/10），外網帶此 Host 也不匹配
+      # 寫入：GET／HEAD 以外的方法；有設 REGISTRY_AUTH_USERS 才掛 basicAuth，空值時 middlewares 為空即不掛
+      traefik.http.routers.docker-registry.rule: Host(`${REGISTRY_DOMAIN:?REGISTRY_DOMAIN 未設定，見 .env.example}`) && PathPrefix(`/v2`) && (ClientIP(`10.0.0.0/8`) || ClientIP(`172.16.0.0/12`) || ClientIP(`192.168.0.0/16`) || ClientIP(`100.64.0.0/10`))
+      traefik.http.routers.docker-registry.entrypoints: websecure
+      traefik.http.routers.docker-registry.tls: true
+      traefik.http.routers.docker-registry.middlewares: ${REGISTRY_AUTH_USERS:+docker-registry-auth}
+      traefik.http.middlewares.docker-registry-auth.basicauth.users: ${REGISTRY_AUTH_USERS:-}
+      # 讀取：pull 與說明頁清單免認證，探測端點 /v2/ 除外（docker 依它決定 push 是否帶帳密）；規則較長，優先序高於寫入 router
+      traefik.http.routers.docker-registry-read.rule: Host(`${REGISTRY_DOMAIN}`) && PathPrefix(`/v2`) && !Path(`/v2/`) && (Method(`GET`) || Method(`HEAD`)) && (ClientIP(`10.0.0.0/8`) || ClientIP(`172.16.0.0/12`) || ClientIP(`192.168.0.0/16`) || ClientIP(`100.64.0.0/10`))
+      traefik.http.routers.docker-registry-read.entrypoints: websecure
+      traefik.http.routers.docker-registry-read.tls: true
+      traefik.http.services.docker-registry.loadbalancer.server.port: 5000
+    restart: unless-stopped
+
+  # 說明頁：渲染 USAGE.md，並於瀏覽器端以同網域 /v2 API 列出 image、tag、大小與建立時間
+  guide:
+    build:
+      context: .
+      dockerfile: guide/Dockerfile
+      args:
+        REGISTRY_DOMAIN: ${REGISTRY_DOMAIN}
+        REGISTRY_PUBLIC_PORT: ${REGISTRY_PUBLIC_PORT:-443}
+    container_name: docker-registry-guide
+    networks: [proxy]
+    labels:
+      traefik.enable: true
+      traefik.http.routers.docker-registry-guide.rule: Host(`${REGISTRY_DOMAIN}`) && (ClientIP(`10.0.0.0/8`) || ClientIP(`172.16.0.0/12`) || ClientIP(`192.168.0.0/16`) || ClientIP(`100.64.0.0/10`))
+      traefik.http.routers.docker-registry-guide.entrypoints: websecure
+      traefik.http.routers.docker-registry-guide.tls: true
+      traefik.http.services.docker-registry-guide.loadbalancer.server.port: 80
+    restart: unless-stopped
+
+networks:
+  # 由 traefik project 建立，須先啟動 traefik
+  proxy:
+    name: traefik-proxy
+    external: true

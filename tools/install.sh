@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # 安裝服務：把 repo 的 services/<服務>/ 同步到目標主機的 ~/<服務>/，只同步檔案、不啟動容器。
+# 用法：不帶參數或加 -h 執行即印出（內容在 usage()）。
 # 啟動與狀態查詢用 tools/run.sh；兩端皆需 rsync。
 # 連線：一律經 ssh。建議在 ~/.ssh/config 為主機設 Host 別名（HostName／User／IdentityFile），
 #       並以 ssh key 免密碼登入（ssh-keygen ＋ ssh-copy-id），<ssh 主機> 直接填別名，例：

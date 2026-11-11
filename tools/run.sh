@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # 操作服務：在目標主機的 ~/<服務>/ 執行 docker compose 指令，或列出該服務的容器狀態。
+# 用法：不帶參數或加 -h 執行即印出（內容在 usage()）。
 # 服務須先以 tools/install.sh 安裝。
 # 連線：一律經 ssh。建議在 ~/.ssh/config 為主機設 Host 別名（HostName／User／IdentityFile），
 #       並以 ssh key 免密碼登入（ssh-keygen ＋ ssh-copy-id），<ssh 主機> 直接填別名，例：
