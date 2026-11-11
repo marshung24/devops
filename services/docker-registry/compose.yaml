@@ -13,6 +13,8 @@ services:
       REGISTRY_STORAGE_DELETE_ENABLED: "true"
       # 上傳流程的 Location 改相對路徑，不受對外 port（8443 等）與代理標頭影響
       REGISTRY_HTTP_RELATIVEURLS: "true"
+      # 關閉 tracing 匯出：預設送往 localhost:4318，無收集端時每 10 秒報錯洗版
+      OTEL_TRACES_EXPORTER: none
     volumes:
       # 主機目錄，放服務目錄外：tools/install.sh 同步時會刪除主機多餘檔案；不存在時 docker 自動建立
       - ${REGISTRY_DATA_DIR:?REGISTRY_DATA_DIR 未設定，見 .env.example}:/var/lib/registry
