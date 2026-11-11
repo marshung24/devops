@@ -20,6 +20,9 @@ services:
       - --entrypoints.web.address=:80
       # 只信任來源主機帶的 PROXY protocol；沒人轉入時維持 loopback
       - --entrypoints.websecure.proxyProtocol.trustedIPs=${TRAEFIK_PROXY_TRUSTED_IPS:-127.0.0.1/32}
+      # 採用這些來源送來的 X-Forwarded-*（後端讀得到原始來源）；留空不信任，ClientIP 規則不受影響
+      - --entrypoints.websecure.forwardedHeaders.trustedIPs=${TRAEFIK_FORWARDED_TRUSTED_IPS:-}
+      - --entrypoints.web.forwardedHeaders.trustedIPs=${TRAEFIK_FORWARDED_TRUSTED_IPS:-}
       # gRPC 長連線不可逾時
       - --entrypoints.websecure.transport.respondingTimeouts.readTimeout=0
       - --entrypoints.websecure.transport.respondingTimeouts.writeTimeout=0
