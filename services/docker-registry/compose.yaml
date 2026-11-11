@@ -26,8 +26,8 @@ services:
       traefik.http.routers.docker-registry.tls: true
       traefik.http.routers.docker-registry.middlewares: ${REGISTRY_AUTH_USERS:+docker-registry-auth}
       traefik.http.middlewares.docker-registry-auth.basicauth.users: ${REGISTRY_AUTH_USERS:-}
-      # 讀取：pull 與說明頁清單免認證；規則較長，Traefik 預設優先序高於寫入 router
-      traefik.http.routers.docker-registry-read.rule: Host(`${REGISTRY_DOMAIN}`) && PathPrefix(`/v2`) && (Method(`GET`) || Method(`HEAD`)) && (ClientIP(`10.0.0.0/8`) || ClientIP(`172.16.0.0/12`) || ClientIP(`192.168.0.0/16`) || ClientIP(`100.64.0.0/10`))
+      # 讀取：pull 與說明頁清單免認證，探測端點 /v2/ 除外（docker 依它決定 push 是否帶帳密）；規則較長，優先序高於寫入 router
+      traefik.http.routers.docker-registry-read.rule: Host(`${REGISTRY_DOMAIN}`) && PathPrefix(`/v2`) && !Path(`/v2/`) && (Method(`GET`) || Method(`HEAD`)) && (ClientIP(`10.0.0.0/8`) || ClientIP(`172.16.0.0/12`) || ClientIP(`192.168.0.0/16`) || ClientIP(`100.64.0.0/10`))
       traefik.http.routers.docker-registry-read.entrypoints: websecure
       traefik.http.routers.docker-registry-read.tls: true
       traefik.http.services.docker-registry.loadbalancer.server.port: 5000

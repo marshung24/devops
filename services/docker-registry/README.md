@@ -2,7 +2,7 @@
 
 > 何時讀：要安裝、維運或排查本服務時。要推拉 image、查清單或看安全須知，讀 [USAGE.md](USAGE.md)（即說明頁 `https://registry.lan.example.com` 的內容）。要知道為何這樣設計、存取邊界與風險，讀 [docs/docker-registry/README.md](../../docs/docker-registry/README.md)。
 
-`registry` 與說明頁 `guide` 共用一個網域，經主機共用 Traefik 提供 HTTPS：`/v2` 給 docker 用戶端，其餘路徑是說明頁（`https://<REGISTRY_DOMAIN>`，內容為 `USAGE.md` 加 image 清單）。只限 LAN 與 NetBird 來源；寫入（push、刪除）可選用帳密（`REGISTRY_AUTH_USERS`），未設時任何人可推、拉、刪，pull 與清單一律免登入；image 存於主機目錄 `REGISTRY_DATA_DIR`（不存在時自動建立）。
+`registry` 與說明頁 `guide` 共用一個網域，經主機共用 Traefik 提供 HTTPS：`/v2` 給 docker 用戶端，其餘路徑是說明頁（`https://<REGISTRY_DOMAIN>`，內容為 `USAGE.md` 加 image 清單）。只限 LAN 與 NetBird 來源；寫入（push、刪除）可選用帳密（`REGISTRY_AUTH_USERS`），未設時任何人可推、拉、刪；說明頁清單一律免登入；image 存於主機目錄 `REGISTRY_DATA_DIR`（不存在時自動建立）。
 
 ## 前提
 
@@ -24,7 +24,7 @@ tools/run.sh up docker-registry minipc-01
 
 改設定時一樣改本機檔再跑 `tools/install.sh`，套用見〈常用操作〉。
 
-驗證（在 LAN 內）：`curl https://registry.lan.example.com/v2/` 回 `{}`、瀏覽器開 `https://registry.lan.example.com` 看到說明頁與 image 清單；外網來源回 404。有設帳密時，未帶帳密 `curl -X POST https://registry.lan.example.com/v2/x/blobs/uploads/` 回 401，帶 `-u <帳號>` 回 202。
+驗證（在 LAN 內）：`curl https://registry.lan.example.com/v2/` 回 `{}`、瀏覽器開 `https://registry.lan.example.com` 看到說明頁與 image 清單；外網來源回 404。有設帳密時 `/v2/` 改回 401（帶 `-u <帳號>` 回 `{}`），未帶帳密 `curl -X POST https://registry.lan.example.com/v2/x/blobs/uploads/` 回 401、帶 `-u <帳號>` 回 202。
 
 ## 常用操作
 

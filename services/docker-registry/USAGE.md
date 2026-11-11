@@ -2,7 +2,7 @@
 
 > 何時讀：要把自建 image 推到內網主機部署，或查這裡有哪些 image 時。本文即說明頁 `https://registry.lan.example.com`（只限 LAN 與 NetBird 來源）的內容。
 >
-> **用途限制**：本服務只為支援**內網開發部署的映像檔暫存與差異傳輸**（push／pull 只傳對方缺少的 layer）。不是正式版本庫，不保證保存，空間不足時可能整庫清空；要留存的 image 請自備來源可重建。存取以來源網段限制；寫入（push、刪除）是否要帳密依主機設定，pull 與清單一律免登入。
+> **用途限制**：本服務只為支援**內網開發部署的映像檔暫存與差異傳輸**（push／pull 只傳對方缺少的 layer）。不是正式版本庫，不保證保存，空間不足時可能整庫清空；要留存的 image 請自備來源可重建。存取以來源網段限制；寫入（push、刪除）是否要帳密依主機設定，清單一律免登入。
 
 ## 映像檔清單
 
@@ -12,7 +12,7 @@
 
 ## 使用
 
-image 路徑為 `registry.lan.example.com/<名稱>:<tag>`，不帶 `https://`。憑證為 Let's Encrypt，不必設 `insecure-registries`。pull 免登入；push 出現 `no basic auth credentials` 或 `401 Unauthorized` 即表示有設寫入帳密，先 `docker login registry.lan.example.com`（帳密向維運者索取）。登入時不驗密碼，打錯要到 push 才報 401。
+image 路徑為 `registry.lan.example.com/<名稱>:<tag>`，不帶 `https://`。憑證為 Let's Encrypt，不必設 `insecure-registries`。出現 `no basic auth credentials` 或 `401 Unauthorized` 即表示有設寫入帳密，先 `docker login registry.lan.example.com`（帳密向維運者索取）：push 一律要登入；pull 在 containerd image store（docker 29 新裝預設、Docker Desktop）免登入，傳統 image store 也要登入。
 
 ```bash
 # 本機 image 加上 registry 路徑的 tag
