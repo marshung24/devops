@@ -55,6 +55,8 @@ docker buildx build --platform linux/amd64 -t registry.lan.example.com/myapp:dev
 ```bash
 # 來源端：image 匯出到 OCI layout 目錄；多個 image 可共用同一目錄，以 ref 名稱（冒號後）區分
 skopeo copy docker-daemon:myapp:dev oci:/srv/oci-store:myapp-dev
+# 目標端先建目錄（rsync 不建上層目錄）
+ssh deploy-host mkdir -p /srv/oci-store/blobs
 # 傳 layer：檔名即內容雜湊、內容不會變，目標端已有的一律略過（不看修改時間，避免整批重傳）
 rsync -a --ignore-existing /srv/oci-store/blobs/ deploy-host:/srv/oci-store/blobs/
 # 傳索引：index.json 記錄目錄內有哪些 image，放在 layer 之後傳，避免指到還沒傳到的 layer
