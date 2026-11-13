@@ -111,7 +111,8 @@ services:
     networks: [proxy]
     labels:
       - traefik.enable=true
-      - traefik.http.routers.vpn-router-guide.rule=Host(`${VPN_GUIDE_DOMAIN:?VPN_GUIDE_DOMAIN 未設定，見 .env.example}`)
+      # 換網域並行期舊網址照常可開；未設定時用不會命中的佔位名稱
+      - traefik.http.routers.vpn-router-guide.rule=Host(`${VPN_GUIDE_DOMAIN:?VPN_GUIDE_DOMAIN 未設定，見 .env.example}`) || Host(`${VPN_GUIDE_LEGACY_DOMAIN:-vpn-guide-legacy.invalid}`)
       - traefik.http.routers.vpn-router-guide.entrypoints=websecure
       - traefik.http.routers.vpn-router-guide.tls=true
       - traefik.http.routers.vpn-router-guide.middlewares=vpn-router-internal-only

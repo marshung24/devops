@@ -76,6 +76,7 @@ cd ~/vpn-router && cp .env.example .env && vi .env
 | `NB_AUTH_SECRET` | Relay 驗證密鑰 |
 | `NB_SESSION_COOKIE_KEY`／`NB_STORE_ENCRYPTION_KEY` | Cookie／資料庫加密金鑰 |
 | `VPN_GUIDE_DOMAIN` | 使用者說明頁網域，須在反向代理的 LAN 根網域下一層 |
+| `VPN_GUIDE_LEGACY_DOMAIN` | 換 LAN 網域並行期的舊說明頁網域（選用），並行結束清空 |
 | `VPN_GUIDE_ALLOW` | 說明頁允許的來源網段，逗號分隔（LAN、NetBird 100.64.0.0/10 及其他內部來源） |
 
 DHCP 保留位址不走 `.env`：在 `compose.yaml` 的 `configs.dnsmasq` 加 `dhcp-host=<MAC>,<IP>`。

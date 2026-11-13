@@ -73,7 +73,7 @@ LAN 筆電 ──DHCP Option 121──→ 轉送主機 ──→ 專線 ──�
 ### 使用者說明頁
 
 - **對象**：一般使用者（非管理者）；內容為 LAN 內 DHCP 資訊與分流確認、LAN 外帳號申請與 NetBird 安裝登入。
-- **內容與網址**：內容為 `services/vpn-router/USAGE.md`，git 中以 `.env.example` 的值與 `wan.example.com` 為通用示例，建置時代入 `.env` 實際值；網址 `VPN_GUIDE_DOMAIN`（`vpn.<LAN 網域>`）。
+- **內容與網址**：內容為 `services/vpn-router/USAGE.md`，git 中以 `.env.example` 的值與 `wan.example.com` 為通用示例，建置時代入 `.env` 實際值；網址 `VPN_GUIDE_DOMAIN`（`vpn.<LAN 網域>`）；換 LAN 網域的並行期，舊網址填 `VPN_GUIDE_LEGACY_DOMAIN` 照常可開，並行結束清空（並行規則見 `docs/traefik/README.md`〈設定〉）。
 - **限制來源**：本服務自有 `ipAllowList`，來源清單 `VPN_GUIDE_ALLOW` 由 `.env` 設定（例：本案 LAN 192.168.1.0/24、NetBird 100.64.0.0/10、舊路由器 VPN 10.8.0.0/24）；經反向代理只用其路由與 TLS，不依賴其內部元件。
 
 ### 部署檔
