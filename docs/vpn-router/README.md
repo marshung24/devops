@@ -56,13 +56,13 @@ LAN 筆電 ──DHCP Option 121──→ 轉送主機 ──→ 專線 ──�
 
 ### NetBird 控制面（自架）
 
-- **入口**：`https://<NB_DOMAIN>`（例：`netbird.wan.example.com`；入口 port 非 443 時網址要帶 port），用共用反向代理的對外網域與萬用字元憑證，不另設 DNS；不走 Cloudflare proxy（gRPC 無法經其代理）。只用單一網域：NetBird 的對外位址與 OIDC issuer 只能有一個，雙網域會使登入導向不符。
+- **入口**：`https://<NB_DOMAIN>`（例：`netbird.wan.example.com`；入口 port 非 443 時網址要帶 port），用共用反向代理的對外網域與萬用字元憑證，不另設 DNS；不走 Cloudflare proxy（gRPC 無法經其代理）。主網域只有一個：NetBird 的對外位址、OIDC issuer 與 Dashboard 只用 `NB_DOMAIN`，雙網域會使登入導向不符。換網域並行期舊網域填 `NB_LEGACY_DOMAIN`，只供用戶端連線（gRPC、Relay、REST API、OAuth2），舊管理網址的用戶端不必改設定，Dashboard 一律用新網域；並行結束清空。登入與登出的導向位址同時登記帶與不帶 port 兩種寫法，因 port 為 443 時瀏覽器的來源不帶 port。
 - **對外**：HTTPS port（經反向代理）；WireGuard 51820/udp 建議轉送到轉送主機。
 - **STUN**：用公共 STUN（例：Cloudflare、Google），不啟用內建 STUN。內建 STUN 與控制面同網域，routing peer 經〈本機回連〉的 `extra_hosts` 會問到 LAN 上的自己，只取得 LAN IP、宣告不出公網位址，P2P 因而建不起來、一律走 Relay；公共 STUN 在 NAT 外，取得的公網位址也隨 DDNS 自動更新。公共 STUN 只看得到各裝置對外 IP，看不到帳號、設定與 VPN 流量。
 - **TLS**：由共用反向代理簽發。
 - **帳號**：內建 IdP 本地帳號。owner 在 Dashboard 以 Add User 建立帳號，方式有兩種：直接建立（系統產生密碼，只顯示一次）或邀請連結（使用者自設密碼，連結有期限）；建立時自動加入群組 `Remote-Users`。建議用邀請連結，密碼不經管理者。
 - **網路**：dashboard、netbird-server 接入反向代理的共用網路；只有 routing peer 用 host network。
-- **本機回連**：routing peer 以 `extra_hosts` 把 `NB_DOMAIN` 指向轉送主機 LAN IP，直連不繞防火牆，不受 NAT loopback 有無影響。LAN 內筆電能否連控制面取決於 NAT loopback：不支援時 NetBird 只供 LAN 外使用；支援時可連，但來源 IP 為防火牆公網 IP。
+- **本機回連**：routing peer 以 `extra_hosts` 把 `NB_DOMAIN` 指向 `NB_LOOPBACK_IP`（預設轉送主機 LAN IP），直連不繞防火牆，不受 NAT loopback 有無影響。主機上的 `NB_PUBLIC_PORT` 不是反向代理時（例：minipc-01 的 443 是主機 nginx），改指向反向代理的固定 IP，連其容器內的 443（此時 `NB_PUBLIC_PORT` 須為 443）。LAN 內筆電能否連控制面取決於 NAT loopback：不支援時 NetBird 只供 LAN 外使用；支援時可連，但來源 IP 為防火牆公網 IP。
 
 ### NetBird 路由與權限
 

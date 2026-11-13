@@ -88,8 +88,8 @@ configs:
               domain:
                 # 對外網域可留空：只支援內網的主機，憑證只簽內網網域
                 main: "${TRAEFIK_BASE_DOMAIN:-${TRAEFIK_LAN_DOMAIN}}"
-                # 換內網網域並行期：舊網域一併簽入，清空即停用
-                sans: [${TRAEFIK_BASE_DOMAIN:+"*.${TRAEFIK_BASE_DOMAIN}", "${TRAEFIK_LAN_DOMAIN}", }${TRAEFIK_EXTRA_DOMAIN:+"${TRAEFIK_EXTRA_DOMAIN}", "*.${TRAEFIK_EXTRA_DOMAIN}", }${TRAEFIK_LEGACY_LAN_DOMAIN:+"${TRAEFIK_LEGACY_LAN_DOMAIN}", "*.${TRAEFIK_LEGACY_LAN_DOMAIN}", }"*.${TRAEFIK_LAN_DOMAIN:?TRAEFIK_LAN_DOMAIN 未設定，見 .env.example}"]
+                # 換網域並行期：舊網域（內網、對外、額外）一併簽入，清空即停用
+                sans: [${TRAEFIK_BASE_DOMAIN:+"*.${TRAEFIK_BASE_DOMAIN}", "${TRAEFIK_LAN_DOMAIN}", }${TRAEFIK_EXTRA_DOMAIN:+"${TRAEFIK_EXTRA_DOMAIN}", "*.${TRAEFIK_EXTRA_DOMAIN}", }${TRAEFIK_LEGACY_LAN_DOMAIN:+"${TRAEFIK_LEGACY_LAN_DOMAIN}", "*.${TRAEFIK_LEGACY_LAN_DOMAIN}", }${TRAEFIK_LEGACY_BASE_DOMAIN:+"${TRAEFIK_LEGACY_BASE_DOMAIN}", "*.${TRAEFIK_LEGACY_BASE_DOMAIN}", }${TRAEFIK_LEGACY_EXTRA_DOMAIN:+"${TRAEFIK_LEGACY_EXTRA_DOMAIN}", "*.${TRAEFIK_LEGACY_EXTRA_DOMAIN}", }"*.${TRAEFIK_LAN_DOMAIN:?TRAEFIK_LAN_DOMAIN 未設定，見 .env.example}"]
       # 跨主機轉送：依 SNI 直通到對方 Traefik，憑證在對方；PROXY protocol 保留真實來源
       # 未設定時用不存在的名稱與關閉的 port：指回本機 443 會讓帶該 SNI 的連線繞回自己
       # 未跳脫網域的點，因誤中僅限偽造 SNI 且轉到對方仍無對應路由

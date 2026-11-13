@@ -32,7 +32,7 @@ services:
       NB_HOSTNAME: ${NB_PEER_HOSTNAME}
     # 不經路由器 NAT loopback，本機直連控制面
     extra_hosts:
-      - ${NB_DOMAIN}:${HOST_LAN_IP}
+      - ${NB_DOMAIN}:${NB_LOOPBACK_IP:-${HOST_LAN_IP}}
     volumes:
       - netbird-client:/var/lib/netbird
     restart: unless-stopped
@@ -75,13 +75,14 @@ services:
     labels:
       - traefik.enable=true
       # gRPC（Signal／Management）需 h2c 後端
-      - traefik.http.routers.vpn-router-grpc.rule=Host(`${NB_DOMAIN}`) && (PathPrefix(`/signalexchange.SignalExchange/`) || PathPrefix(`/management.ManagementService/`))
+      # 換網域並行期舊網域只供用戶端連線，Dashboard 只用新網域；未設定時用不會命中的佔位名稱
+      - traefik.http.routers.vpn-router-grpc.rule=(Host(`${NB_DOMAIN}`) || Host(`${NB_LEGACY_DOMAIN:-nb-legacy.invalid}`)) && (PathPrefix(`/signalexchange.SignalExchange/`) || PathPrefix(`/management.ManagementService/`))
       - traefik.http.routers.vpn-router-grpc.entrypoints=websecure
       - traefik.http.routers.vpn-router-grpc.tls=true
       - traefik.http.routers.vpn-router-grpc.service=vpn-router-server-h2c
       - traefik.http.routers.vpn-router-grpc.priority=100
       # Relay、WebSocket、REST API、OAuth2
-      - traefik.http.routers.vpn-router-backend.rule=Host(`${NB_DOMAIN}`) && (PathPrefix(`/relay`) || PathPrefix(`/ws-proxy/`) || PathPrefix(`/api`) || PathPrefix(`/oauth2`))
+      - traefik.http.routers.vpn-router-backend.rule=(Host(`${NB_DOMAIN}`) || Host(`${NB_LEGACY_DOMAIN:-nb-legacy.invalid}`)) && (PathPrefix(`/relay`) || PathPrefix(`/ws-proxy/`) || PathPrefix(`/api`) || PathPrefix(`/oauth2`))
       - traefik.http.routers.vpn-router-backend.entrypoints=websecure
       - traefik.http.routers.vpn-router-backend.tls=true
       - traefik.http.routers.vpn-router-backend.service=vpn-router-server
@@ -159,6 +160,13 @@ configs:
           dashboardRedirectURIs:
             - "https://${NB_DOMAIN}:${NB_PUBLIC_PORT}/nb-auth"
             - "https://${NB_DOMAIN}:${NB_PUBLIC_PORT}/nb-silent-auth"
+            # port 為 443 時瀏覽器來源不帶 port，另登記不帶 port 的寫法
+            - "https://${NB_DOMAIN}/nb-auth"
+            - "https://${NB_DOMAIN}/nb-silent-auth"
+          # 登出後導回 Dashboard，同理登記帶與不帶 port 兩種寫法
+          dashboardPostLogoutRedirectURIs:
+            - "https://${NB_DOMAIN}:${NB_PUBLIC_PORT}/"
+            - "https://${NB_DOMAIN}/"
         # 只信任共用反向代理帶的 X-Forwarded-*（IP 為其接入契約的固定 IP）
         reverseProxy:
           trustedPeers:
