@@ -33,6 +33,7 @@
 ## 4. 設定
 
 - **DNS**：對外根網域跟著 DDNS 指公網 IP；LAN 根網域各自直接指該主機 LAN IP，LAN 內不經路由器（無 NAT loopback）；皆不走 Cloudflare proxy，以免攔下非標準 port 與 gRPC。兩組都含 `*.`，接入方用根網域下一層的名稱即可，不必再設 DNS。具體記錄讀 `services/traefik/README.md`〈1. Cloudflare DNS〉。
+- **換內網網域（並行期）**：`TRAEFIK_LAN_DOMAIN` 直接換成新網域，說明頁隨之顯示新網域；舊網域填 `TRAEFIK_LEGACY_LAN_DOMAIN`，與新網域簽在同一張憑證（含 `*.`），已列舊網域的接入路由照常可用。接入方在並行期把 Host 改為新舊並列（HTTP router 一併改），新舊網址命中同一服務且保留原 Path、middleware、priority 與來源限制才算完成；新網址回說明頁表示該接入方尚未改。並行結束：接入方先移除 HTTPS、HTTP router 的舊 Host 並重新部署（本 repo 的 vpn-router 清空 `VPN_GUIDE_LEGACY_DOMAIN` 並重建），再清空 `TRAEFIK_LEGACY_LAN_DOMAIN` 並重建；變數只管憑證與說明頁，未移除的舊 Host 經 HTTP 仍可用。Cloudflare token 須涵蓋新舊網域所在的所有 zone。對外網域同理：`TRAEFIK_BASE_DOMAIN` 換新、舊網域填 `TRAEFIK_LEGACY_BASE_DOMAIN`，`TRAEFIK_EXTRA_DOMAIN` 換新時舊網域填 `TRAEFIK_LEGACY_EXTRA_DOMAIN`，一併簽入同張憑證。
 - **只支援內網的主機**：`TRAEFIK_BASE_DOMAIN` 留空，憑證只簽內網網域與其 `*.`，說明頁不顯示外網示例。
 - **TLS**：對外網域有 `*.` CNAME 時也會命中 `_acme-challenge`，追到 DDNS 網域就無法建 TXT，故設 `LEGO_DISABLE_CNAME_SUPPORT`，TXT 一律建在 Cloudflare。萬用字元只能用 DNS-01；DNS-01 只需 Cloudflare API 建 TXT，申請與續期不需對外開 80/443；生效檢查查公共 DNS，不受主機（含 ppp0）解析器影響。萬用字元憑證掛在 TLS default store（掛在 router 上無法正確簽出，traefik/traefik#12109），接入方 router 只設 `tls=true` 即以 SNI 取用；根網域外的名稱仍可用 certresolver `le` 單獨申請。
 - **HTTP**：`tls=true` 的 router 只聽 TLS，走 HTTP 要另設 `entrypoints=web`、不設 tls 的 router，接入方自行決定是否提供。HTTP 為明文，只在沒有對外轉送的主機開放。

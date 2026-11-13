@@ -23,6 +23,8 @@ MySQL、Redis、MQTT 等一般 TCP 服務與 UDP 服務不經本入口：明文�
 | 外網 | `https://<名稱>.wan.example.com` |
 | LAN 內 | `https://<名稱>.lan.example.com` |
 
+> **換網域並行期**：內網網域已換成上表網域，舊網域 `legacy.example.com` 暫時仍可用。已接入者請把 Host 改為新舊並列，例 `` Host(`myapp.lan.example.com`) || Host(`myapp.legacy.example.com`) ``（HTTP router 一併改），並確認新網址開到的是自己的服務、不是本說明頁；舊網域停用日另行通知。
+
 > **建議只用 LAN 內網址**：在公司 LAN 或連上 NetBird 時使用；這個名稱解析到內網 IP，外網用網址連不到。但名稱不是安全邊界，有人刻意帶這個 Host 連外網入口仍可能進來（見〈接入契約〉），機敏服務不要接本入口。
 >
 > 外網網址會對所有人開放，要開之前請先評估必要性與安全性：是否真的需要從 LAN 與 NetBird 以外連入、服務本身有沒有登入保護、資料是否敏感。

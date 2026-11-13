@@ -15,7 +15,7 @@
 | 萬用字元憑證 | `NB_DOMAIN`、`VPN_GUIDE_DOMAIN` 須在其涵蓋的根網域下一層，router 只設 `tls=true` | 憑證不符，client 拒絕連線 |
 | 反向代理固定 IP `172.30.0.10` | netbird-server 只信任此 IP 帶的 `X-Forwarded-*` | IP 變動時來源資訊失真 |
 
-接入設定已寫在本目錄 `compose.yaml`，不必另改。`NB_PUBLIC_PORT` 須與反向代理的對外 port 相同。dhcp 與 netbird（routing peer）用 host network，不依賴反向代理。
+接入設定已寫在本目錄 `compose.yaml`，不必另改。`NB_PUBLIC_PORT` 是網址上的 port，定義見〈設定〉表。dhcp 與 netbird（routing peer）用 host network，不依賴反向代理。
 
 ## 容器
 
@@ -31,7 +31,7 @@
 
 | Port | 協定 | 服務 | 對外 | 用途 |
 |---|---|---|---|---|
-| `NB_PUBLIC_PORT`（預設 443，須同反向代理對外 port） | TCP | 共用反向代理 | ✅ 防火牆（或路由器）轉送到轉送主機 | Dashboard、REST API、gRPC（Management／Signal）、Relay |
+| `NB_PUBLIC_PORT`（預設 443，網址上的 port） | TCP | 共用反向代理 | ✅ 防火牆（或路由器）轉送到轉送主機 | Dashboard、REST API、gRPC（Management／Signal）、Relay |
 | 67 | UDP | dhcp | ❌ 只在 `DHCP_INTERFACE` | DHCP server |
 | 51820 | UDP | netbird | ⭕ 建議轉送到轉送主機 | WireGuard；P2P 失敗時經 Relay（較慢） |
 
@@ -70,12 +70,15 @@ cd ~/vpn-router && cp .env.example .env && vi .env
 | `DHCP_DNS` | DNS，逗號分隔 |
 | `DHCP_ROUTE_NET` | 目標網段，DHCP 把它指向轉送主機 |
 | `NB_DOMAIN` | 控制面網域，須在反向代理對外根網域下一層 |
-| `NB_PUBLIC_PORT` | 控制面對外 HTTPS port，須與反向代理相同 |
+| `NB_PUBLIC_PORT` | 控制面網址上的 HTTPS port，即用戶端實際連的入口 port；防火牆把外部 443 轉到反向代理的其他 port（例：8443）時仍填 443，不一定等於反向代理在主機綁定的 port |
+| `NB_LEGACY_DOMAIN` | 換網域並行期的舊控制面網域（選用），只供用戶端連線，並行結束清空 |
+| `NB_LOOPBACK_IP` | routing peer 回連控制面的 IP（選用，預設 `HOST_LAN_IP`）；主機上的 `NB_PUBLIC_PORT` 不是反向代理（例：443 為主機 nginx）時填反向代理固定 IP，連其容器內的 443 |
 | `NB_PEER_HOSTNAME` | routing peer 在 NetBird 的名稱 |
 | `NB_SETUP_KEY` | routing peer 註冊用一次性 key（控制面起來後才有） |
 | `NB_AUTH_SECRET` | Relay 驗證密鑰 |
 | `NB_SESSION_COOKIE_KEY`／`NB_STORE_ENCRYPTION_KEY` | Cookie／資料庫加密金鑰 |
 | `VPN_GUIDE_DOMAIN` | 使用者說明頁網域，須在反向代理的 LAN 根網域下一層 |
+| `VPN_GUIDE_LEGACY_DOMAIN` | 換 LAN 網域並行期的舊說明頁網域（選用），並行結束清空 |
 | `VPN_GUIDE_ALLOW` | 說明頁允許的來源網段，逗號分隔（LAN、NetBird 100.64.0.0/10 及其他內部來源） |
 
 DHCP 保留位址不走 `.env`：在 `compose.yaml` 的 `configs.dnsmasq` 加 `dhcp-host=<MAC>,<IP>`。

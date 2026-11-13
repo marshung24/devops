@@ -25,7 +25,7 @@
 Traefik 用它在 Cloudflare 建立憑證驗證用的 TXT 記錄。建立路徑：Cloudflare Dashboard → 右上頭像 → My Profile → API Tokens → Create Token → Custom token：
 
 - Permissions：`Zone`／`Zone`／`Read`、`Zone`／`DNS`／`Edit`（缺 Read 會 403）
-- Zone Resources：`Include`／`Specific zone`／根網域所在的 zone
+- Zone Resources：`Include`／`Specific zone`／根網域所在的 zone；設定檔的網域（含 `TRAEFIK_EXTRA_DOMAIN`、`TRAEFIK_LEGACY_*_DOMAIN`）分屬多個 zone 時逐一加入
 - 選填：Client IP Address Filtering 限 .21 公網 IP（IP 變動時 token 失效）
 
 token 建立後只顯示一次，第 4 步填入設定檔。
