@@ -17,12 +17,12 @@
 |---|---|---|
 | 部署單位 | **獨立 project `traefik`**，各服務以外部網路接入 | 放在 vpn-router 內：其 `down` 會斷其他服務入口 |
 | 多主機 | **每台獨立 Traefik**，同一份 compose，差異放各主機 `.env` | Swarm overlay 共用單一入口：服務要改 stack、需 registry，且 minipc-01 成單點；minipc-01 以 file provider 轉送：路由不能靠 label 自助接入 |
-| 對外入口 | minipc-01 **8443/tcp**（路由器只轉送到這台）；minipc-02、minipc-03 **443/tcp**，不轉送 | minipc-01 用 80/443：主機 nginx 佔用 |
+| 對外入口 | minipc-01 **8443/tcp**（路由器外部 443、8443 都轉到這台）；minipc-02、minipc-03 **443/tcp**，不轉送。minipc-01 的內網網域另由主機 nginx 443 依 SNI 反向代理到 8443（nginx 設定與憑證同步不屬本 repo），故網址皆不帶 port，由 `TRAEFIK_URL_PORT` 告知說明頁；該 nginx 只放行 LAN 與路由器 VPN 來源，主機上的容器經 443 會被拒，須帶 `:8443` | minipc-01 用 80/443：主機 nginx 佔用 |
 | HTTP 入口 | **`web` entrypoint（:80），主機 port 由 `TRAEFIK_HTTP_PORT` 設定，不跳轉 HTTPS**；留空時只綁 loopback，等同不開放 | minipc-01 開 80：主機 nginx 佔用；跳轉 HTTPS：HTTP 要能直接使用 |
 | 內外網區隔 | **以 hostname 控制**：服務只寫內網名稱，不做來源或入口隔離；僅用於開發測試，安全與保密等級低，接受此風險 | 外網專用 entrypoint：防火牆與 DNS 都無法把內網 `fet` 流量分開；`ipAllowList` 放行公網 IP：DDNS 下要自動更新，維運成本高 |
 | 根網域 | **兩組**：`TRAEFIK_BASE_DOMAIN`（對外）、`TRAEFIK_LAN_DOMAIN`（內網，DNS 指該主機 LAN IP），皆由 `.env` 設定；每個 router 同時列兩者。只支援內網的主機 `TRAEFIK_BASE_DOMAIN` 留空，router 只列內網網域 | 只用對外網域：路由器無 NAT loopback，LAN 內連不到 |
 | 憑證 | **Let's Encrypt 萬用字元憑證**，一張涵蓋兩組根網域與其 `*.`，Cloudflare DNS-01；接入方只開 TLS，不另申請 | 各 router 各自申請：每個新網域都要等簽發、消耗頻率額度 |
-| 說明頁 | **`https://traefik.<TRAEFIK_LAN_DOMAIN>:8443`，同時是內部來源的預設頁（根網域、主機 IP 與沒有對應路由的名稱都顯示它），來源只限私有網段與 NetBird**，渲染 `services/traefik/USAGE.md` | 對網際網路公開：內容含內部網段與 IP；另開 LAN 專用 HTTP port：多一個入口與 port；同時掛對外網域：白名單內的使用者都走不到（LAN 無 NAT loopback、遠端經當地網路出去），掛了也沒用 |
+| 說明頁 | **`https://traefik.<TRAEFIK_LAN_DOMAIN>`，同時是內部來源的預設頁（根網域、主機 IP 與沒有對應路由的名稱都顯示它），來源只限私有網段與 NetBird**，渲染 `services/traefik/USAGE.md` | 對網際網路公開：內容含內部網段與 IP；另開 LAN 專用 HTTP port：多一個入口與 port；同時掛對外網域：白名單內的使用者都走不到（LAN 無 NAT loopback、遠端經當地網路出去），掛了也沒用 |
 
 ## 3. 接入契約
 
