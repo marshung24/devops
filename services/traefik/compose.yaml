@@ -59,7 +59,7 @@ services:
       args:
         TRAEFIK_BASE_DOMAIN: ${TRAEFIK_BASE_DOMAIN:-}
         TRAEFIK_LAN_DOMAIN: ${TRAEFIK_LAN_DOMAIN}
-        TRAEFIK_PUBLIC_PORT: ${TRAEFIK_PUBLIC_PORT}
+        TRAEFIK_PUBLIC_PORT: ${TRAEFIK_URL_PORT:-${TRAEFIK_PUBLIC_PORT}}
     container_name: traefik-guide
     networks: [proxy]
     labels:
